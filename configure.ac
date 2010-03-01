@@ -132,11 +132,14 @@ AC_ARG_ENABLE(threads,
       no|none)
        GAUCHE_THREAD_TYPE=none
       ;;
+      win32)
+       GAUCHE_THREAD_TYPE=win32
+      ;;
       default)
        GAUCHE_THREAD_TYPE=default
       ;;
       *)
-       AC_MSG_ERROR([invalid value $enableval for --enable-threads option (must be either none, pthreads, or default])
+       AC_MSG_ERROR([invalid value $enableval for --enable-threads option (must be either none, pthreads, win32 or default])
       ;;
     esac
   ], [])
@@ -208,10 +211,16 @@ case $GAUCHE_THREAD_TYPE in
       ;;
   esac
  ;;
+ win32) 
+  AC_DEFINE(GC_WIN32_THREADS,1,[Define to use Win32 threads])
+ ;;
 esac
 case $GAUCHE_THREAD_TYPE in
   pthreads)        
    AC_DEFINE(GAUCHE_USE_PTHREADS,1,[Define if we use pthreads])
+   ;;
+  win32)        
+   AC_DEFINE(GAUCHE_USE_WTHREADS,1,[Define if we use win32 threads])
    ;;
   *)
    ;;
