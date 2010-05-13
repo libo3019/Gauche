@@ -334,23 +334,23 @@
 
   (test* #`",|what| dequeue-all!" '(a b c d e)
          (begin (enqueue! q 'a 'b 'c 'd 'e) (dequeue-all! q)))
-  (test* #`",|what| dequeue-all!" '()
-         (dequeue-all! q))
-  (test* #`",|what| dequeue-all!" #t
-         (queue-empty? q))
+  (test* #`",|what| dequeue-all!" '() (dequeue-all! q))
+  (test* #`",|what| dequeue-all!" #t  (queue-empty? q))
 
-  (test* #`",|what| find-in-queue" #f
-         (find-in-queue (cut eq? <> 'a) q))
-  (test* #`",|what| find-in-queue" 'a
-         (begin (enqueue! q 'a 'b 'c 'd 'e)
-                (find-in-queue (cut eq? <> 'a) q)))
-  (test* #`",|what| find-in-queue" 'c
-         (find-in-queue (cut eq? <> 'c) q))
-  (test* #`",|what| find-in-queue" 'e
-         (find-in-queue (cut eq? <> 'e) q))
-  (test* #`",|what| find-in-queue" '#f
-         (find-in-queue (cut eq? <> 'f) q))
+  (test* #`",|what| find-in-queue" #f (find-in-queue (cut eq? <> 'a) q))
+  (test* #`",|what| find-in-queue" 'a (begin (enqueue! q 'a 'b 'c 'd 'e)
+                                             (find-in-queue (cut eq? <> 'a) q)))
+  (test* #`",|what| find-in-queue" 'c (find-in-queue (cut eq? <> 'c) q))
+  (test* #`",|what| find-in-queue" 'e (find-in-queue (cut eq? <> 'e) q))
+  (test* #`",|what| find-in-queue" '#f (find-in-queue (cut eq? <> 'f) q))
 
+  (test* #`",|what| any-in-queue?" 'ok
+         (any-in-queue (^x (and (eq? x 'c) 'ok)) q))
+  (test* #`",|what| any-in-queue?" #f
+         (any-in-queue (^x (and (eq? x 'z) 'ok)) q))
+  (test* #`",|what| every-in-queue?" #t (every-in-queue symbol? q))
+  (test* #`",|what| every-in-queue?" #f (every-in-queue (cut eq? <> 'a) q))
+  
   (test* #`",|what| remove-from-queue!" #f
          (remove-from-queue! (cut eq? <> 'f) q))
   (test* #`",|what| remove-from-queue!" #t
@@ -399,6 +399,8 @@
 (queue-basic-test "mtqueue"      make-mtqueue)
 
 (let ((q (make-mtqueue :max-length 3)))
+  (test* "mtqueue room" 3 (mtqueue-room q))
+
   (test* "mtqueue maxlen" 'c
          (begin (enqueue! q 'a)
                 (enqueue! q 'b)
@@ -408,11 +410,13 @@
          (enqueue! q 'd))
   (test* "mtqueue maxlen (enqueue! unchanged after overflow)" '(a b c)
          (queue->list q))
+  (test* "mtqueue room" 0 (mtqueue-room q))
   (test* "mtqueue maxlen (enqueue! multiarg overflow)" (test-error)
          (begin (dequeue! q)
                 (enqueue! q 'd 'e 'f)))
   (test* "mtqueue maxlen (enqueue! atomicity)" '(b c)
          (queue->list q))
+  (test* "mtqueue room" 1 (mtqueue-room q))
 
   (test* "mtqueue maxlen (queue-push! overflow)" (test-error)
          (begin (queue-push! q 'a)
@@ -425,6 +429,8 @@
   (test* "mtqueue maxlen (queue-push! atomicity)" '(b c)
          (queue->list q))
   )
+
+(test* "mtqueue room" +inf.0 (mtqueue-room (make-mtqueue)))
 
 ;; Note: */wait! APIs are tested in ext/threads/test.scm instead of here,
 ;; since we need threads working.

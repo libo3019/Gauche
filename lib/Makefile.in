@@ -32,14 +32,14 @@ CONFIG_GENERATED = Makefile slib.scm
 SUBDIRS  = gauche gauche/vm gauche/serializer gauche/interactive gauche/mop \
            gauche/package gauche/cgen gauche/experimental \
 	   srfi-14 srfi-29 \
-           binary dbd dbm math util compat file rfc text www www/cgi
+           binary control dbd dbm math util compat file rfc text www www/cgi
 
 SCMFILES = srfi-0.scm \
        srfi-4.scm srfi-5.scm srfi-7.scm srfi-9.scm srfi-11.scm \
        srfi-14.scm srfi-14/query.scm srfi-14/set.scm \
        srfi-26.scm srfi-27.scm \
        srfi-29.scm srfi-29/bundle.scm srfi-29/format.scm \
-       srfi-31.scm srfi-37.scm srfi-42.scm srfi-55.scm \
+       srfi-31.scm srfi-37.scm srfi-42.scm srfi-55.scm srfi-98.scm \
        slib.scm	 \
        gauche/redefutil.scm gauche/test.scm gauche/time.scm \
        gauche/macroutil.scm gauche/stringutil.scm \
@@ -56,7 +56,7 @@ SCMFILES = srfi-0.scm \
        gauche/parseopt.scm gauche/interactive.scm gauche/interactive/info.scm \
        gauche/selector.scm gauche/logger.scm gauche/record.scm \
        gauche/common-macros.scm gauche/singleton.scm gauche/validator.scm \
-       gauche/version.scm \
+       gauche/version.scm gauche/partcont.scm \
        gauche/interpolate.scm gauche/defvalues.scm \
        gauche/listener.scm gauche/config.scm gauche/reload.scm \
        gauche/mop/instance-pool.scm gauche/mop/validator.scm \
@@ -69,6 +69,7 @@ SCMFILES = srfi-0.scm \
        gauche/experimental/ref.scm gauche/experimental/lamb.scm \
        gauche/experimental/app.scm \
        binary/pack.scm \
+       control/job.scm control/thread-pool.scm \
        dbi.scm dbd/null.scm dbm.scm dbm/fsdbm.scm \
        math/const.scm \
        util/isomorph.scm util/toposort.scm util/tree.scm \

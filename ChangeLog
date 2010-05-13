@@ -1,3 +1,224 @@
+2010-05-12  Shiro Kawai  <shiro@acm.org>
+
+	* ext/net/netaux.scm (make-server-sockets): If the system defaults
+	  v6 sockets to be dual-stack (i.e. IPV6_V6ONLY is off by default),
+	  the current strategy fails since v6 socket tries to bind both
+	  v4 and v6 addresses.  The default is system-dependent, so we
+	  adopt a heuristic: First we bind v6 addresses, and then we try
+	  v4 ones; if v4 one fails with EADDRINUSE, we just ignore it.
+
+2010-05-11  Shiro Kawai  <shiro@acm.org>
+
+	* src/vm.c (POP_CONT): fixed a bug that refers wrong pointer.
+
+	* src/port.c (register_buffered_port): Fixed a race condition
+	  accessing the active port vector.  Pointed by enami.
+
+	* src/vm.c (user_eval_inner, Scm_VMCallPC):
+	  src/intlib.stub (%call/pc):
+	  lib/gauche/partcont.scm: Experimentally added partial (delimited)
+	  continuation support.  A partial continuation is marked by
+	  ep->cstack == NULL.  Its 'root' is cut by %call/pc.  It is
+	  executed on the cstack where it is invoked.  When execution of
+	  a partial continuation ends, popping continuation frame yields
+	  vm->cont == NULL, which caused run_loop() to return to
+	  user_eval_inner, which in turn hands the control over the latest
+	  continuation delimited by reset().   Note that reset() operator
+	  is simply Scm_VMApplyRec0---user_eval_inner implicitly delimits
+	  the continuation.   No partial continuation frames should include
+	  c stack frames in it.
+
+2010-05-10  Shiro Kawai  <shiro@acm.org>
+
+	* src/vm.c (user_eval_inner, throw_continuation): Allow execution
+	  of "ghost continuations", the continuations whose dynamic extent
+	  of C stack is effectively expired.   For example, if a
+	  continuation is captured within the callback function from C,
+	  and the callback has already returned to C, then the continuation
+	  becomes a ghost.  Ghost continuation cannot return to C at its
+	  bottom, for it is not allowed in C to return from already expired
+	  stack frame.  We used to raise an error when ghost continuation
+	  is invoked.  However, the Scheme portion of a ghost continuation
+	  is still effective and executable.  This change allows a ghost
+	  continuation to be executed on the current C stack.  If the
+	  continuation tries to return to C, an error is signalled.
+
+2010-05-04  Shiro Kawai  <shiro@acm.org>
+
+	* src/char.c (Scm_CharSetComplement): Fixed to handle complement
+	  correctly for the cases that the range touches the lower bound,
+	  or the range has one-character gap.
+
+2010-05-03  Shiro Kawai  <shiro@acm.org>
+
+	* ext/util/queue.scm (any-in-queue, every-in-queue): added.
+
+	* lib/gauche/common-macros.scm (unwind-protect): Allow multiple
+	  handlers, as in CL.
+
+	* src/module.h (origin, prefix): Added these slots to support
+	  wrapper module with prefix.  Modules are not statically allocated,
+	  so this shouldn't affect ABI.
+	* src/module.c (Scm__MakeWrapperModule): An implicit module inserted
+	  to support prefixed symbols.  This obsoletes the change on
+	  2009-09-23, using module and prefix pair in the import list.
+	  (Scm_FindBinding): Consider prefix from the wrapper module
+	  Dropped support of (#<module> . prefix) in the import list.
+	  (Scm__InitModulePost): Made module information visible as slots.
+	  We should call Scm_InitStatiClassWithMeta in module.c, but
+	  that needs to be done after the class system is initialized.
+	  Scm__InitModule needs to be called before Scm__InitClass,
+	  so we need another initialize function, which is called
+	  after Scm__InitClass.
+	* src/core.c (Scm_Init), src/class.c (Scm__InitClass): Changed
+	  accordingly.
+	* src/compile.scm (process-import): Support :rename.  Rewrote
+	  :only and :except support to use wrapper modules.
+
+2010-05-02  Shiro Kawai  <shiro@acm.org>
+
+	* lib/control/job.scm, lib/control/thread-pool.scm: Added.
+	* test/TESTS2, Makefile.in, src/Makefile.in: Set up some tests
+	  to be run after ext/* tests.
+	* test/control.scm: Added.
+
+	* ext/util/queue.scm (mtqueue-room): Added.
+
+2010-05-01  Shiro Kawai  <shiro@acm.org>
+
+	* ext/net/test.scm: Fix test failure on ipv6 enabled host.
+
+	* src/gauche-init.scm (use): Allow options that can be passed
+	  to import.
+
+	* doc/modgauche.tex (gauche.mop.propagate): Made it officially
+	  documented.
+	* lib/gauche/mop/propagate.scm: Enable initialization of propagated
+	  slot via init-keyword.
+
+2010-04-30  Shiro Kawai  <shiro@acm.org>
+
+	* src/compile.scm (pass1/define, pass1/lambda): Defines R5RS version
+	  and Gauche version of define and lambda separately; Gauche version
+	  supports extended formals, R5RS version not.  For those who want
+	  vanilla versions for whatever reason, say (extend scheme).
+
+2010-04-25  Shiro Kawai  <shiro@acm.org>
+
+	* src/compile.scm (pass1/define-inline): Revamp inlining mechanism
+	  of lambdas with closed environment.  The new scheme doesn't
+	  require separate form such as %inlinable-lambda.  I check in the
+	  current state, which works on basic cases but needs more refinement
+	  for the practical cases.  This change shouldn't affect the existing
+	  valid code (that is, the path to inline lambdas with no closed
+	  enviornment isn't changed).
+	  Also reverting the change on 2010-03-28 about the packed information
+	  of inlinable procedure (the info in $lambda-flag).  With this new
+	  scheme we can just use packed IForm; no need to keep extra info.
+	* src/intlib.stub (%insert-binding): Allow optional flags.
+
+2010-04-21  Shiro Kawai  <shiro@acm.org>
+
+	* ext/bcrypt: Change module name from gauche.bcrypt to crypt.bcrypt,
+	  for it represents the module better.
+
+2010-04-20  Shiro Kawai  <shiro@acm.org>
+
+	* src/Makefile.in: Re-adding $(LIBS) to link gauche-config, for
+	  it is needed on mingw.
+
+2010-04-19  Shiro Kawai  <shiro@acm.org>
+
+	* configure.ac, src/gauche/config.h.in: Added GNU/kfreebsd and
+	  GNU/Hurd support.  Patch from NIIBE Yutaka.
+
+	* lib/gauche/treeutil.scm (tree-map-map, tree-map-for-each): Added.
+	* src/autoloads.scm, doc/corelib.texi: Modified accordingly.
+
+	* src/Makefile.in: Fix linking gauche-config; patch from Debian build,
+	  by YAEGASHI Takeshi.
+
+	* configure.ac: Support for arm-unknown-linux-gnueabi and
+	  arm-unknown-linux-gnulp architecture.  Patch from NIIBE Yutaka.
+
+	* src/number.c (Scm_NumLE, Scm_NumLT, Scm_NumGE, Scm_NumGT):
+	  Added these APIs that handles NaN properly.  Scm_NumCmp alone
+	  is not suitable to handle comparison involving NaNs.
+	* src/number.h: ditto.
+	* src/vminsn.scm ($w/numcmp): Use above APIs to handle NaNs.
+	* src/stdlib.stub (=, <, <=, >, >=): Use above APIs to handle NaNs.
+	* test/number.scm: Added tests of numeric comparison involving NaNs.
+
+	* src/gauche/float.h (SCM_HALF_FLOAT_IS_NAN, SCM_HALF_FLOAT_CMP):
+	  Recognizes and handles NaN bitpattern of ScmHalfFloat.
+	* src/vector.c (compare_f16vector): ditto.
+	* ext/uvector/test.scm: Added tests for uvector comparison.
+
+2010-04-18  Shiro Kawai  <shiro@acm.org>
+
+	* src/gauche/vector.h (struct ScmVectorRec): The 'size' field
+	  must have the same length as ScmObj, otherwise vector literals
+	  allocated in ScmObj[] by precompiler doesn't work on big-endian
+	  machines.  Patch from Stephen Lewis.
+
+2010-04-13  Shiro Kawai  <shiro@acm.org>
+
+	* lib/srfi-98.scm, lib/Makefile.in: Added srfi-98 support.
+	* src/core.c: Made cond-expand aware of srfi-98, srfi-99.
+	* doc/concepts.texi, doc/corelib.texi, doc/modsrfi.texi: srfi-98.
+
+2010-04-11  Shiro Kawai  <shiro@acm.org>
+
+	* src/compile.scm (dynamic-wind): Fixed a bug that leaves lvar's
+	  refcounts wrong after inline transformation.
+
+2010-04-08  Shiro Kawai  <shiro@acm.org>
+
+	* src/vm.c (save_env): Revised the previous fix to make it
+	  clearer, based on the analysis of NIIBE Yutaka.
+
+2010-04-07  Shiro Kawai  <shiro@acm.org>
+
+	* src/vm.c (save_env): Avoid copying ScmEnvFrame header as an
+	  array of ScmObj*.  Doing so apparently violates the strict
+	  aliasing rule and results unintended compilation on some
+	  architectures (gcc on ia64 confirmed).  Patch contribution
+	  from NIIBE Yutaka.
+
+2010-03-30  Shiro Kawai  <shiro@acm.org>
+
+	* doc/*.texi: Moved 'coding: utf-8' to the end of the file,
+	  since texinfo-multiple-files-update seems to blindly assume
+	  the first line of a file is a node command.
+
+2010-03-28  Shiro Kawai  <shiro@acm.org>
+
+	* src/compile.scm (pass1/inlinable-lambda, pass1/expand-inliner etc):
+	  Changed inlining info in $LAMBDA node to allow closed lvars
+	  plus future extensions, from a simple vector of packed IForm.
+	  Changed places that uses info, though currently they only deal
+	  with the case that no lvars are closed.
+	  This affects the dumped format of precompilation; the old format
+	  is still recognized and supported, but will be dropped in the
+	  next major release.
+
+2010-03-25  Shiro Kawai  <shiro@acm.org>
+
+	* lib/gauche/record.scm: Added support of vector-backed pseudo record.
+	  The procedure returned by rtd-accessor has a setter if the field
+	  is mutable.
+
+2010-03-22  Shiro Kawai  <shiro@acm.org>
+
+	* libsrc/util/match.scm: Fixed a bug that caused match-let* fail
+	  (required identifiers are not defined).
+
+2010-03-09  Shiro Kawai  <shiro@acm.org>
+
+	* src/compile.scm (iform-copy): Fixed a bug that yielded a wrong
+	  optimization when flagged closure is inlined.  Thanks to the
+	  Michael Campbell for the detailed report.
+
 2010-02-27  Shiro Kawai  <shiro@acm.org>
 
 	* lib/www/cgi.scm (get-mime-parts): Fixed a bug that didn't parse
@@ -2337,7 +2558,7 @@
 
 	* ext/dbm/ndbm.stub, ext/dbm/ndbm.scm, ext/dbm/ndbm-makedb.c,
 	  ext/dbm/ndbm-suffixes.scm, ext/dbm/Makefile.in: Since different
-	  ndbm implementations attach different suffixes for the database 
+	  ndbm implementations attach different suffixes for the database
 	  files, we determine the suffixes at the build time by actually
 	  creating the ndbm database.  The extra files (ndbm-makedb.c and
 	  ndbm-suffixes.scm) are used in the build time to create

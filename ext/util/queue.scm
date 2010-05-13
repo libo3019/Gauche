@@ -48,13 +48,14 @@
   (use srfi-1)
   (export <queue> <mtqueue>
           make-queue make-mtqueue queue? mtqueue?
-          queue-length mtqueue-max-length
+          queue-length mtqueue-max-length mtqueue-room
           queue-empty? copy-queue
           queue-push! queue-push-unique! enqueue! enqueue-unique!
           queue-pop! dequeue! dequeue-all!
           queue-front queue-rear queue-length
           queue->list list->queue
           find-in-queue remove-from-queue!
+          any-in-queue every-in-queue
 
           enqueue/wait! queue-push/wait! dequeue/wait! queue-pop/wait!)
   )
@@ -289,6 +290,15 @@
  (define-cproc queue-length (q::<queue>) ::<int> Q_LENGTH)
  (define-cproc mtqueue-max-length (q::<mtqueue>) ::<int> MTQ_MAXLEN)
 
+ (define-cproc mtqueue-room (q::<mtqueue>) ::<number>
+   (let* ([room::int -1])
+     (with-mtq-light-lock q
+       (when (> (MTQ_MAXLEN q) 0)
+         (set! room (- (MTQ_MAXLEN q) (Q_LENGTH q)))))
+     (if (>= room 0)
+       (result (SCM_MAKE_INT room))
+       (result SCM_POSITIVE_INFINITY))))
+
  ;; caller must hold big lock
  (define-cproc %qhead (q::<queue>) (result (Q_HEAD q)))
  
@@ -319,6 +329,8 @@
     (values-ref (queue-peek q (car opt)) 1)))
 (define (queue->list q)         (queue-op q (^_(list-copy (%qhead q)))))
 (define (find-in-queue pred q)  (queue-op q (^_(find pred (%qhead q)))))
+(define (any-in-queue pred q)   (queue-op q (^_(any pred (%qhead q)))))
+(define (every-in-queue pred q) (queue-op q (^_(every pred (%qhead q)))))
 
 ;;;
 ;;; Enqueue/dequeue

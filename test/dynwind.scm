@@ -119,6 +119,61 @@
                           1))))))
               11)))
 
+(test "call/cc (ghost continuation)" (test-error)
+      (lambda ()
+        (%apply-rec
+         (lambda (k)
+           (%apply-rec
+            (lambda ()
+              (cons 1 (call-with-current-continuation
+                       (lambda (c) (set! k c) 1)))))
+           (k 2))
+         #f)))
+
+(test "call/cc (ghost continuation, escaping out by call/cc)" '(1 . 2)
+      (lambda ()
+        (call-with-current-continuation
+         (lambda (safe-return)
+           (let ((s values))
+             (%apply-rec
+              (lambda (k)
+                (%apply-rec
+                 (lambda ()
+                   (s (cons 1 (call-with-current-continuation
+                               (lambda (c) (set! k c) 1))))))
+                (set! s safe-return)
+                (k 2))
+              #f))))))
+
+(test "call/cc (ghost continuation, escaping out by error)" '(1 . 2)
+      (lambda ()
+        (with-error-handler values
+          (lambda ()
+            (let ((s values))
+              (%apply-rec
+               (lambda (k)
+                 (%apply-rec
+                  (lambda ()
+                    (s (cons 1 (call-with-current-continuation
+                                (lambda (c) (set! k c) 1))))))
+                 (set! s raise)
+                 (k 2))
+               #f))))))
+
+(test "call/cc (ghost continuation, escaping out by error 2)" '(1 . 2)
+      (lambda ()
+        (guard (e [else e])
+          (let ((s values))
+            (%apply-rec
+             (lambda (k)
+               (%apply-rec
+                (lambda ()
+                  (s (cons 1 (call-with-current-continuation
+                              (lambda (c) (set! k c) 1))))))
+               (set! s raise)
+               (k 2))
+             #f)))))
+
 ;; Paranoia
 
 (test "call/cc & dynwind (cstack)" '(a b c)
@@ -280,6 +335,27 @@
                          (lambda (e) (cont #t))
                        (lambda () (car 3))))))
 
+;; test for compiler optimizer propery tracks local procedure usage
+;; (problem reported by SaitoAtsushi)
+
+(test* "compiler optimizer for dynamic-wind" 2
+       (let ((a 1))
+         (let ((lv (lambda () (set! a 2))))
+           (dynamic-wind lv (lambda () 'hoge) lv))
+         a))
+
+;; make sure the evaluation order isn't changed in presense of
+;; dynamic-wind inlining; that is, the arguments should be fully
+;; evaluated before before/after thunks are executed.
+(test* "optimization and inlined dynamic-wind" 2
+       (let ((a 1))
+         (define (make-prepost x) (lambda () (set! a x)))
+         (define (make-thunk) (lambda () a))
+         (dynamic-wind
+             (make-prepost 2)
+             (make-thunk)
+             (make-prepost 3))))
+
 ;;-----------------------------------------------------------------------
 ;; Test for stack overflow handling
 
@@ -364,5 +440,78 @@
 
 (test "Al's call/cc test" 1
       (lambda () (call/cc (lambda (c) (0 (c 1))))))
+
+;;-----------------------------------------------------------------------
+;; Partial continuations
+
+(test-section "partial continuations")
+(use gauche.partcont)
+(test-module 'gauche.partcont)
+
+(test "reset" 6
+      (lambda () (+ 1 (reset (+ 2 3)))))
+(test "reset" '(1 2)
+      (lambda () (cons 1 (reset (cons 2 '())))))
+
+(test "shift, ignoring k" 4
+      (lambda () (+ 1 (reset (+ 2 (shift k 3))))))
+(test "shift, ignoring k" '(1 3)
+      (lambda () (cons 1 (reset (cons 2 (shift k (list 3)))))))
+
+(test "calling pc" 10
+      (lambda () (+ 1 (reset (+ 2 (shift k (+ 3 (k 4))))))))
+(test "calling pc" '(1 3 2 4)
+      (lambda ()
+        (cons 1 (reset (cons 2 (shift k (cons 3 (k (cons 4 '())))))))))
+
+(test "calling pc multi" 14
+      (lambda ()
+        (+ 1 (reset (+ 2 (shift k (+ 3 (k 5) (k 1))))))))
+(test "calling pc multi" '(1 3 2 2 4)
+      (lambda ()
+        (cons 1 (reset (cons 2 (shift k (cons 3 (k (k (cons 4 '()))))))))))
+
+;; 'amb' example in Gasbichler&Sperber ICFP2002 paper
+(let ()
+  (define (eta x) (list (x)))                    ; unit
+  (define (extend f l) (apply append (map f l))) ; bind
+  (define (reflect meaning) (shift k (extend k meaning)))
+  (define (reify thunk) (reset (eta thunk)))
+  (define (amb* . t)
+    (reflect (apply append (map reify t))))
+  (let-syntax ([amb
+                (syntax-rules () [(amb x ...) (amb* (lambda () x) ...)])])
+    (define (www)
+      (let ((f (lambda (x) (+ x (amb 6 4 2 8) (amb 2 4 5 4 1)))))
+        (reify (lambda () (f (f (amb 0 2 3 4 5 32)))))))
+
+    (define (wwww)
+      (let ((f (lambda (x) (+ x (amb 6 4 2 8) (amb 2 4 5 4 1)))))
+        (reify (lambda () (f (f (f (amb 0 2 3 4 5 32))))))))
+
+    (test "www" 2400 (lambda () (length (www))))
+    (test "wwww" 48000 (lambda () (length (wwww))))
+    ))
+
+;; inversion of iterator
+(let ()
+  (define (inv lis)
+    (define (kk)
+      (reset (for-each (lambda (e) (shift k (set! kk k) e)) lis)
+             (set! kk (lambda () (eof-object)))
+             (eof-object)))
+    (lambda () (kk)))
+  (define iter (inv '(1 2 3 4 5)))
+  (test "inversion" 1 iter)
+  (test "inversion" 2 iter)
+  (test "inversion" 3 iter)
+  (test "inversion" 4 iter)
+  (test "inversion" 5 iter)
+  (test "inversion" (eof-object) iter)
+  (test "inversion" (eof-object) iter))
+
+;; To be written:
+;;  - tests for interactions of dynamic handlers and partial continuaions.
+;;  - tests for interactions of partial and full continuations.
 
 (test-end)

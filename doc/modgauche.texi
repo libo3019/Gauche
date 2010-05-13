@@ -1,4 +1,3 @@
-@c -*- mode: texinfo; coding: utf-8; -*-
 @node Library modules - Gauche extensions, Library modules - SRFIs, Library modules - Overview, Top
 @chapter Library modules - Gauche extensions
 @c NODE ライブラリモジュール - Gauche拡張モジュール
@@ -6,7 +5,6 @@
 @c ----------------------------------------------------------------------
 @menu
 * Arrays::                      gauche.array
-* Password hashing::            
 * Character code conversion::   gauche.charconv
 * Collection framework::        gauche.collection
 * Configuration parameters::    gauche.config
@@ -16,12 +14,14 @@
 * Interactive session::         gauche.interactive
 * Listener::                    gauche.listener
 * User-level logging::          gauche.logger
+* Propagating slot access::     gauche.mop.propagate
 * Singleton::                   gauche.mop.singleton
 * Slot with validator::         gauche.mop.validator
 * Networking::                  gauche.net
 * Parameters::                  gauche.parameter
 * Parsing command-line options::  gauche.parseopt
 * High Level Process Interface::  gauche.process
+* Record types::                gauche.record
 * Reloading modules::           gauche.reload
 * Simple dispatcher::           gauche.selector
 * Sequence framework::          gauche.sequence
@@ -35,7 +35,7 @@
 * Virtual ports::               gauche.vport
 @end menu
 
-@node Arrays, Password hashing, Library modules - Gauche extensions, Library modules - Gauche extensions
+@node Arrays, Character code conversion, Library modules - Gauche extensions, Library modules - Gauche extensions
 @section @code{gauche.array} - Arrays
 @c NODE 配列, @code{gauche.array} - 配列
 
@@ -238,7 +238,7 @@ It is equivalent to @code{(is-a? obj <array-base>)}.
 @c COMMON
 @end defun
 
-@defun make-array shape &optional init
+@defun make-array shape :optional init
 [SRFI-25]
 @c EN
 Creates an array of shape @var{shape}.
@@ -262,8 +262,8 @@ Shapeが@var{shape}である配列を作成します。
 @end example
 @end defun
 
-@defun make-u8array shape &optional init
-@defunx make-s8array shape &optional init
+@defun make-u8array shape :optional init
+@defunx make-s8array shape :optional init
 @findex make-u16array
 @findex make-s16array
 @findex make-u32array
@@ -272,8 +272,8 @@ Shapeが@var{shape}である配列を作成します。
 @findex make-s64array
 @dots{}
 @end defun
-@defun make-f32array shape &optional init
-@defunx make-f64array shape &optional init
+@defun make-f32array shape :optional init
+@defunx make-f64array shape :optional init
 @c EN
 Like @code{make-array}, but creates and returns an uniform numeric array.
 @c JP
@@ -442,17 +442,17 @@ Shapeが@var{shape}であり、与えられた配列@var{array}とバッキン�
 @c COMMON
 @end defun
 
-@defun array-for-each-index array proc &optional index
+@defun array-for-each-index array proc :optional index
 @end defun
 
-@defun shape-for-each shape proc &optional index
+@defun shape-for-each shape proc :optional index
 @end defun
 
-@defun tabulate-array shape proc &optional index
+@defun tabulate-array shape proc :optional index
 @end defun
 
-@defun array-retabulate! array shape proc &optional index
-@defunx array-retabulate! array proc &optional index
+@defun array-retabulate! array shape proc :optional index
+@defunx array-retabulate! array proc :optional index
 @end defun
 
 @defun array-map! array shape proc array0 array1 @dots{}
@@ -467,20 +467,20 @@ Shapeが@var{shape}であり、与えられた配列@var{array}とバッキン�
 @defunx array->list array
 @end defun
 
-@defun array-concatenate a b &optional dimension
+@defun array-concatenate a b :optional dimension
 @end defun
 
-@defun array-transpose array &optional dim1 dim2
+@defun array-transpose array :optional dim1 dim2
 @end defun
 
-@defun array-rotate-90 array &optional dim1 dim2
+@defun array-rotate-90 array :optional dim1 dim2
 @end defun
 
-@defun array-flip array &optional dimension
-@defunx array-flip! array &optional dimension
+@defun array-flip array :optional dimension
+@defunx array-flip! array :optional dimension
 @end defun
 
-@defun identity-array dimension &optional class
+@defun identity-array dimension :optional class
 @end defun
 
 @defun array-inverse array
@@ -513,139 +513,7 @@ Shapeが@var{shape}であり、与えられた配列@var{array}とバッキン�
 @end defun
 
 @c ----------------------------------------------------------------------
-@node Password hashing, Character code conversion, Arrays, Library modules - Gauche extensions
-@section @code{gauche.bcrypt} - Password hashing
-@c NODE パスワードハッシュ, @code{gauche.bcrypt} - パスワードハッシュ
-
-@deftp {Module} gauche.bcrypt
-@mdindex gauche.bcrypt
-@c EN
-This module implements a password hashing algorithm using blowfish,
-and compatible to OpenBSD's bcrypt algorithm (version 2a).
-@c JP
-このモジュールは、blowfishを使ったパスワードハッシュアルゴリズムを実装します。
-OpenBSDのbcryptアルゴリズム(version 2a)と互換です。
-@c COMMON
-
-@c EN
-The typical usage of this module is simple enough.
-To get a new password hash value (e.g. for a new user), pass the
-password string to @code{bcrypt-hashpw} as the only argument:
-@c JP
-典型的な使い方は非常にシンプルです。新しいパスワードハッシュ値を
-得たい場合 (例えば新しいユーザのために、など) は、パスワード文字列を
-唯一の引数として@code{bcrypt-hashpw}を呼び出してください。
-@c COMMON
-
-@example
-(bcrypt-hashpw @var{password})
-  @result{} @r{hashed-string}
-@end example
-
-@c EN
-The routine automatically adds a salt value.  The returned hash
-string can be stored in the user database.  To check if the given
-password matches the stored one, pass the
-hashed string as the second argument of @code{bcrypt-hashpw} to
-check the password.
-@c JP
-このルーチンは自動的にソルト値を付加します。戻り値の文字列はそのままユーザ
-データベースに格納できます。与えられたパスワードがハッシュ値に一致するか
-どうかを調べるには、ハッシュ値そのものを第二引数として@code{bcrypt-hashpw}に
-渡します。
-@c COMMON
-
-@example
-(bcrypt-hashpw @var{password} @var{hashed-string}) 
-  @result{} @r{hashed-string}
-@end example
-
-@c EN
-If the given password is correct, the returned value should
-exactly matches @var{hash-string}.
-@c JP
-パスワードが正しければ、戻り値は@var{hashed-string}と完全に一致するはずです。
-@c COMMON
-@end deftp
-
-@defun bcrypt-hashpw password &optional setting
-@c EN
-Calculates a hash value of @var{password}, using the salt value
-and parameters included in @var{setting}.  If @var{setting} is
-omitted, a suitable default settings and random salt value is
-chosen automatically.
-
-The returned hash value contains the salt value and parameters,
-and can be used as @var{setting}.  So, to check the password
-against existing hash value, just pass the hash value to
-@var{setting}; if the password is correct, the returned hash value
-should match the one you passed in.
-
-The bcrypt algorithm supports up to 72 octets for the password.
-
-To tweak parameters when you calculate a new hash value,
-use @code{bcrypt-gensalt} below to get the initial @var{setting}
-value.
-@c JP
-@var{password}のハッシュ値を計算します。@var{setting}は
-ソルト値とパラメータを指定する文字列です。@var{setting}が
-省略された場合は、適切なデフォルトのパラメータとランダムなソルト値が
-自動的に選択されます。
-
-戻り値のハッシュ値文字列にはソルト値とパラメータが含まれているので、
-それを再び@var{setting}に渡すことができます。したがって、パスワードを
-既存のハッシュ値に一致するかチェックしたい場合は、ハッシュ値を@var{setting}に渡し、
-戻ってきた文字列が渡したハッシュ値と一致するかを見れば良いことになります。
-
-bcryptアルゴリズムは最大72オクテットまでのパスワードを使えます。
-
-新しいハッシュ値を計算する際にパラメータを指定したい場合は、次に説明する
-@code{bcrypt-gensalt}を使うと@var{setting}に使える文字列を得ることができます。
-@c COMMON
-@end defun
-
-@defun bcrypt-gensalt &key prefix count entropy-source
-@c EN
-Returns a string that contains given parameters and suitable to
-pass to the @var{setting} argument of @code{bcrypt-hashpw}.
-
-The @var{prefix} argument specifies the version/scheme of
-password hashing.  Currently only @code{$2a$} is supported,
-which means the blowfish algorithm compatible to bcrypt.
-
-The @var{count} arugment specifies the amount of iterations;
-the larger the value is, the more time is required to calculate
-the hash value.  Note that for the password hashing, taking more
-time is actually a good thing, for it works against the dictionary attack.
-For normal password checking you need to run the hash routine only 
-once per login, so it doesn't matter if the calculation takes a fraction
-of second.
-The bcrypt algorithm iterates @code{(expt 2 @var{count})} times.
-
-The @var{entropy-source} argument is a @code{u8vector} to feed
-a random bytes.  For bcrypt algorithm it must be at least 16 octet long.
-@c JP
-与えられたパラメータを折り込んだ、
-@code{bcrypt-hashpw}の@var{setting}引数に使える文字列を返します。
-
-@var{prefix}引数はハッシュ関数およびそのバージョンを指定する文字列です。
-現在のところ、@code{bcrypt}互換である@code{$2a$}のみがサポートされています。
-
-@var{count}引数はハッシュの繰り返し回数に関係します。大きな値を指定すれば、
-ハッシュ値の計算により長い時間がかかります。パスワードハッシュにおいては、
-時間をかけた方が良いことに注意してください。一回のハッシュの時間が長くなれば
-辞書攻撃への防御になります。一方で、通常のパスワードチェックでは
-ログインの度にたかだか一回しはハッシュ関数を呼ばないので、それがたとえコンマ数秒
-かかったとしてもたいした負荷ではありません。
-bcryptアルゴリズムでは、@code{(expt 2 @var{count})}回ハッシュが繰り返されます。
-
-@var{entropy-source}引数はランダムなバイト列を格納した@code{u8vector}です。
-bcryptアルゴリズムでは少なくとも16バイトの長さが必要です。
-@c COMMON
-@end defun
-
-@c ----------------------------------------------------------------------
-@node Character code conversion, Collection framework, Password hashing, Library modules - Gauche extensions
+@node Character code conversion, Collection framework, Arrays, Library modules - Gauche extensions
 @section @code{gauche.charconv} - Character Code Conversion
 @c NODE 文字コード変換, @code{gauche.charconv} - 文字コード変換
 
@@ -767,7 +635,7 @@ Also there are two useful procedures to deal with CES names.
 また、CESを扱う二つの便利な手続きが用意されています。
 @c COMMON
 
-@defun ces-equivalent? ces-a ces-b &optional unknown-value
+@defun ces-equivalent? ces-a ces-b :optional unknown-value
 @c EN
 Returns true if two CESes @var{ces-a} and @var{ces-b} are equivalent
 to the knowledge of the system.  Returns false if they are not.
@@ -797,7 +665,7 @@ CES名 "none" はワイルドカードのように動作します。それはど
 @end example
 @end defun
 
-@defun ces-upper-compatible? ces-a ces-b &optional unknown-value
+@defun ces-upper-compatible? ces-a ces-b :optional unknown-value
 @c EN
 Returns true if a string encoded in CES @var{ces-b} can also
 be regarded as a string encoded in @var{ces-a} without conversion,
@@ -1026,7 +894,7 @@ usually in favor of the native CES.
 @subsection Conversion ports
 @c NODE 変換ポート
 
-@defun open-input-conversion-port source from-code &keyword to-code buffer-size owner?
+@defun open-input-conversion-port source from-code :key to-code buffer-size owner?
 @c EN
 Takes an input port @var{source}, which feeds characters
 encoded in @var{from-code}, and returns another input port,
@@ -1113,7 +981,7 @@ For example, the following code copies a file @file{unknown.txt} to a file
 @end defun
 
 
-@defun open-output-conversion-port sink to-code &keyword from-code buffer-size owner?
+@defun open-output-conversion-port sink to-code :key from-code buffer-size owner?
 @c EN
 Creates and returns an output port that converts
 given characters from @var{from-code} to @var{to-code}
@@ -1151,7 +1019,7 @@ and true, however, it closes @var{sink} when it is closed.
 @c COMMON
 @end defun
 
-@defun ces-convert string from-code &optional to-code
+@defun ces-convert string from-code :optional to-code
 @c EN
 Convert @var{string}'s character encoding from @var{from-code}
 to @var{to-code}, and returns the converted string.
@@ -1174,8 +1042,8 @@ assumed.
 @c COMMON
 @end defun
 
-@defun call-with-input-conversion iport proc &keyword encoding conversion-buffer-size
-@defunx call-with-output-conversion oport proc &keyword encoding conversion-buffer-size
+@defun call-with-input-conversion iport proc :key encoding conversion-buffer-size
+@defunx call-with-output-conversion oport proc :key encoding conversion-buffer-size
 @c EN
 These procedures can be used to perform character I/O with
 different encoding temporary from the original port's encoding.
@@ -1254,8 +1122,8 @@ Gauche の内部エンコーディングをもつ文字を書き込むことが�
 @c COMMON
 @end defun
 
-@defun with-input-conversion iport thunk &keyword encoding conversion-buffer-size
-@defunx with-output-conversion oport thunk &keyword encoding conversion-buffer-size
+@defun with-input-conversion iport thunk :key encoding conversion-buffer-size
+@defunx with-output-conversion oport thunk :key encoding conversion-buffer-size
 @c EN
 Similar to @code{call-with-*-conversion},
 but these procedures call @var{thunk} without arguments,
@@ -1270,8 +1138,8 @@ The meaning of keyword arguments are the same as @code{call-with-*-conversion}.
 @c COMMON
 @end defun
 
-@defun wrap-with-input-conversion port from-code &keyword to-code owner? buffer-size
-@defunx wrap-with-output-conversion port to-code &keyword from-code owner? buffer-size
+@defun wrap-with-input-conversion port from-code :key to-code owner? buffer-size
+@defunx wrap-with-output-conversion port to-code :key from-code owner? buffer-size
 @c EN
 Convenient procedures to avoid adding unnecessary conversion port.
 Each procedure works like @code{open-input-conversion-port}
@@ -1862,8 +1730,8 @@ applied in order.  Otherwise the order of application is undefined.
 @end example
 @end deffn
 
-@deffn {Generic function} find-min coll &keyword key compare default
-@deffnx {Generic function} find-max coll &keyword key compare default
+@deffn {Generic function} find-min coll :key key compare default
+@deffnx {Generic function} find-max coll :key key compare default
 @c EN
 Returns a minimum or maximum element in the collection @var{coll}.
 
@@ -1894,7 +1762,7 @@ returned, whose default is @code{#f}.
 @end example
 @end deffn
 
-@deffn {Generic function} find-min&max coll &keyword key compare default default-min default-max
+@deffn {Generic function} find-min&max coll :key key compare default default-min default-max
 @c EN
 Does @code{find-min} and @code{find-max} simultaneously, and returns
 two values, the minimum element and the maximum element.
@@ -2018,7 +1886,7 @@ in the collections of class @var{class}.
 @end example
 @end deffn
 
-@deffn {Generic function} group-collection coll &keyword key test
+@deffn {Generic function} group-collection coll :key key test
 @c EN
 Generalized @code{partition}.  Groups elements in @var{coll}
 into those who has the same key value, and returns the groups as
@@ -2143,7 +2011,7 @@ as fundamental methods are explained at the bottom of this subsection.
 何故このインタフェースを基礎のメソッドとして選んだかについてはこの章の最後に説明します。
 @c COMMON
 
-@deffn {Generic function} call-with-iterator collection proc &keyword start
+@deffn {Generic function} call-with-iterator collection proc :key start
 @c EN
 A fundamental iterator creator.   This creates two procedures
 from @var{collection}, both take no argument, and then call
@@ -2246,7 +2114,7 @@ N-aryのイテレータメソッドを書くのに便利な手続きです。
 @c COMMON
 @end defun
 
-@deffn {Generic function} call-with-builder collection-class proc &keyword size
+@deffn {Generic function} call-with-builder collection-class proc :key size
 @c EN
 A fundamental builder creator.  Builder is a way to construct
 a collection incrementally.  Not all collection classes provide
@@ -2601,7 +2469,7 @@ to provide at least @code{dict-get}, @code{dict-put!}, @code{dict-exists?},
 have default behavior built on top of these.  Of course your can
 implement other methods as well, potentially to gain better performance.
 
-@deffn {Generic function} dict-get (dict @code{<dictionary>}) key &optional default
+@deffn {Generic function} dict-get (dict @code{<dictionary>}) key :optional default
 Returns the value corresponding to the @var{key}.  
 If the dictionary doesn't have an entry with @var{key},
 returns @var{default} when it is provided, or raises an error
@@ -2761,8 +2629,8 @@ to create it like this:
 Returns the left or right map of @var{bimap}, respectively.
 @end defun
 
-@defun bimap-left-get bimap key &optional default
-@defunx bimap-right-get bimap key &optional default
+@defun bimap-left-get bimap key :optional default
+@defunx bimap-right-get bimap key :optional default
 Lookup the value corresponding to the @var{key} in the left or right
 map of @var{bimap}.   If no entry is found for @var{key}, 
 @var{default} is returned if provided, otherwise an error is
@@ -2824,7 +2692,7 @@ advisory file locking.
 @c COMMON
 @end deftp
 
-@defun sys-fcntl port-or-fd operation &optional arg
+@defun sys-fcntl port-or-fd operation :optional arg
 @c EN
 Performs certain operation on the file specified by @var{port-or-fd},
 which should be a port object or an integer
@@ -3211,7 +3079,7 @@ causes all the registered procedure to be invoked.
 @c COMMON
 @end deftp
 
-@defun make-hook &optional (arity 0)
+@defun make-hook :optional (arity 0)
 @c EN
 Creates a new hook object with given arity, which should be a
 non-negative integer.
@@ -3237,7 +3105,7 @@ Returns true if @var{hook}'s procedure list is empty.
 @c COMMON
 @end defun
 
-@deffn {Method} add-hook! (hook <hook>) proc &optional (append? #f)
+@deffn {Method} add-hook! (hook <hook>) proc :optional (append? #f)
 @c EN
 Adds a procedure @var{proc} to @var{hook}.  If @var{append?}
 is given and true, @var{proc} is added at the end of the list.
@@ -3324,7 +3192,7 @@ those functions can be used by default in interactive development.
 @c COMMON
 @end deftp
 
-@defmac apropos pattern &optional module
+@defmac apropos pattern :optional module
 @c EN
 Show a list of defined variables whose name matches @var{pattern}.
 If you give a module or a module name @var{module}, only the variables
@@ -3909,7 +3777,7 @@ this program on the machine accessible from outside network!)
 @end example
 
 @c ----------------------------------------------------------------------
-@node User-level logging, Singleton, Listener, Library modules - Gauche extensions
+@node User-level logging, Propagating slot access, Listener, Library modules - Gauche extensions
 @section @code{gauche.logger} - User-level logging
 @c NODE ユーザレベルのロギング, @code{gauche.logger} - ユーザレベルのロギング
 
@@ -4143,7 +4011,7 @@ are @code{LOG_PID}, @code{LOG_USER} and @code{LOG_INFO}, respectively.
 @end deftp
 
 
-@defun log-open path &keyword prefix program-name
+@defun log-open path :key prefix program-name
 @c EN
 Sets the destination of the default log message to the path @var{path}.
 It can be a string or a boolean, as described above.
@@ -4232,7 +4100,131 @@ the code runs without logging.
 @end deffn
 
 @c ----------------------------------------------------------------------
-@node Singleton, Slot with validator, User-level logging, Library modules - Gauche extensions
+@node Propagating slot access, Singleton, User-level logging, Library modules - Gauche extensions
+@section @code{gauche.mop.propagate} - Propagating slot access
+@c NODE スロットアクセスの伝播, @code{gauche.mop.propagate} - スロットアクセスの伝播
+
+@deftp {Module} gauche.mop.propagate
+@mdindex gauche.mop.propagate
+Provides a metaclass to add @code{:propagated} slot allocation option.
+
+When a slot allocation has @code{:propagated}, access
+to the slot is redirected to other object's slot.
+It is handy for composite objects to keep external
+interface simple, for access to the slot of inner objects
+can be disguised as if it is a slot of the parent object.
+@end deftp
+
+An example would work better than explanation.
+Suppose you have a @code{<rect>} class to represent
+generic rectangular area, and you want to use it when you create
+a @code{<viewport>} class by composition, instead of
+inheritance.  A simple way would be as follows:
+
+@example
+(define-class <rect> ()
+  ((width  :init-keyword :width)
+   (height :init-keyword :height)))
+
+(define-class <viewport> ()
+  ((dimension :init-form (make <rect>))
+   ;;   ... other slots ...
+   )) 
+@end example
+
+With this definition, whenever you want to access the viewport's
+width or height, you have to go through @code{<rect>} object, e.g.
+@code{(~ viewport'dimension'width)}.  This is not only cumbersome,
+but the users of viewport class have to know that how the
+viewport is composed (it's not necessarily a bad thing,
+but sometimes you may want to hide it).
+
+Using @code{gauche.mop.propagate}, you can define slots
+@code{width} and @code{height} in @code{<viewport>} class
+that are proxies of @code{<rect>}'s slots.
+
+@example
+(use gauche.mop.propagate)
+
+(define-class <rect> ()
+  ((width  :init-keyword :width)
+   (height :init-keyword :height)))
+
+(define-class <viewport> (<propagate-mixin>)
+  ((dimension :init-form (make <rect>))
+   (width     :allocation :propagated :propagate 'dimension
+              :init-keyword :width)
+   (height    :allocation :propagated :propagate 'dimension
+              :init-keyword :height)))
+@end example
+
+With @code{:propagated} allocation, the slots are not actually
+allocated in @code{<viewport>} instance, and accesses to the
+slots are redirected to the object in the slot specified by 
+@code{:propagate} slot option---in this case, the @code{dimension} slot.
+It is somewhat similar to the virtual slots, but it's more convenient
+for you don't explicitly write procedures to redirect the access.
+
+Now you can treat @code{width} and @code{height} as if they
+are slots of @code{<viewport>}.   You can even make them
+initialize via @code{init-keyword} (but you can't use
+@code{:init-form} or @code{:init-value}; if you want to specify
+default values, give the default values to the actual object).
+
+@example
+gosh> (define vp (make <viewport> :width 640 :height 480))
+vp
+gosh> (d vp)
+#<<viewport> 0xc5a1e0> is an instance of class <viewport>
+slots:
+  dimension : #<<rect> 0xc5a130>
+  width     : 640
+  height    : 480
+gosh> (set! (~ vp'width) 800)
+#<undef>
+gosh> (~ vp'width)
+800
+@end example
+
+Here's two classes that enables this feature.
+Usually all you have to do is to inherit @code{<propagate-mixin>} class.
+
+@deftp {Class} <propagate-meta>
+@clindex propagate-meta
+Adds @code{:propagated} slot allocation.  
+The propagated slot has to have @code{:propagate} slot option
+which specifies the name of the slot that points to an object
+that actually holds the value of the slot.
+If a slot has @code{:propagated} slot allocation but
+does not have @code{:propagate} slot option, an error is signalled.
+
+The @code{:propagate} slot option should have a value
+of either a symbol, or a list of two symbols.
+
+If it is a symbol, it names the slot that contains an
+object, whose slot with the same name of the propagate slot
+holds the value.
+
+If it is a list of two symbols as @code{(X Y)}, then 
+the access to this propagated slot actually works as
+@code{(slot-ref (slot-ref obj X) Y)}.
+
+If you want to make a propagated slot initializable by
+init-keywords, make sure the slot holding the actual object
+comes before the propagated slots.  Slot initialization proceeds
+in the order of appearance by default, and you want the
+actual object is created before setting values.
+@end deftp
+
+@deftp {Class} <propagate-mixin>
+@clindex propagate-mixin
+This is a convenience mixin class.   Instead of giving 
+@code{:metaclass <propagate-meta>}, you can just inherit
+this calss to make propagated slots available.
+@end deftp
+
+@c ----------------------------------------------------------------------
+@node Singleton, Slot with validator, Propagating slot access, Library modules - Gauche extensions
 @section @code{gauche.mop.singleton} - Singleton
 @c NODE シングルトン, @code{gauche.mop.singleton} - シングルトン
 
@@ -4278,7 +4270,7 @@ fist invocation, and ignored in the subsequent invocation.
 @c COMMON
 @end deftp
 
-@deffn {Method} instance-of (class <singleton-meta>) &rest initargs
+@deffn {Method} instance-of (class <singleton-meta>) :rest initargs
 @c EN
 This method just calls @code{make} with the passed arguments.
 It is more obvious in the program that you're dealing with singleton.
@@ -4682,7 +4674,7 @@ protocol stack.
 @c COMMON
 @end deftp
 
-@defun make-sockaddrs host port &optional proto
+@defun make-sockaddrs host port :optional proto
 @c EN
 This is a higher-level utility procedure to create all possible
 inet domain socket addresses that point to @code{@var{host}:@var{port}}
@@ -4861,7 +4853,7 @@ provide, use low-level interface.
 より細かい制御が必要な場合は低レベルAPIを使用して下さい。
 @c COMMON
 
-@defun make-client-socket &optional address-spec @dots{}
+@defun make-client-socket :optional address-spec @dots{}
 @c EN
 Creates and returns a client socket, connected to the address
 specified by @var{address-spec} @dots{}.
@@ -4938,7 +4930,7 @@ or cannot connect to the specified address.
 @end example
 @end defun
 
-@defun make-server-socket &optional address-spec @dots{}
+@defun make-server-socket :optional address-spec @dots{}
 @c EN
 Creates and returns a server socket, listening the address
 specified by @var{address-spec}.
@@ -5031,7 +5023,7 @@ by an instance of @code{<sockaddr>}.
 @end example
 @end defun
 
-@defun make-server-sockets host port &keyword reuse-addr? sock-init
+@defun make-server-sockets host port :key reuse-addr? sock-init
 @c EN
 Creates one or more sockets that listen at @var{port}
 on all available network interfaces of @var{host}.
@@ -5073,8 +5065,8 @@ If no address has been associated to the socket, @code{#f} is returned.
 @c COMMON
 @end defun
 
-@defun socket-input-port socket &keyword (buffering :modest)
-@defunx socket-output-port socket &keyword (buffering :line)
+@defun socket-input-port socket :key (buffering :modest)
+@defunx socket-output-port socket :key (buffering :line)
 @c EN
 Returns an input and output port associated with @var{socket},
 respectively.
@@ -5115,7 +5107,7 @@ interfering the existing connection.   You can call
 @c COMMON
 @end defun
 
-@defun call-with-client-socket socket proc &keyword input-buffering output-buffering
+@defun call-with-client-socket socket proc :key input-buffering output-buffering
 @c EN
 @var{socket} must be a connected client socket.  @var{proc} is called
 with two arguments, an input port that reads from the socket
@@ -5194,7 +5186,7 @@ the sockets.
 制御できるので、役に立つでしょう。
 @c COMMON
 
-@defun make-socket domain type &optional protocol
+@defun make-socket domain type :optional protocol
 @c EN
 Returns a socket with specified parameters.
 @c JP
@@ -5408,8 +5400,8 @@ Returns a @code{<sockaddr>} instance that is the peer address of
 @c COMMON
 @end defun
 
-@defun socket-send socket msg &optional flags
-@defunx socket-sendto socket msg to-address &optional flags.
+@defun socket-send socket msg :optional flags
+@defunx socket-sendto socket msg to-address :optional flags.
 @c EN
 Interfaces to @code{send(2)} and @code{sendto(2)}, respectively.
 Transmits the content of @var{msg} through @var{socket}.
@@ -5443,7 +5435,7 @@ and @code{sendto(2)} for the details.
 @c COMMON
 @end defun
 
-@defun socket-sendmsg socket msghdr &optional flags
+@defun socket-sendmsg socket msghdr :optional flags
 @c EN
 Sends a packet described by @var{msghdr} through @var{socket}
 using @code{sendmsg(3)}.  The @var{msghdr} argument must be a
@@ -5478,7 +5470,7 @@ availability of this procedure (@xref{Platform-dependent features}).
 @c COMMON
 @end defun
 
-@defun socket-buildmsg addr iov control flags &optional buf
+@defun socket-buildmsg addr iov control flags :optional buf
 @c EN
 Builds a binary representation of @code{struct msghdr} which is
 suitable to be given to @code{socket-sendmsg}.
@@ -5563,7 +5555,7 @@ availability of this procedure (@xref{Platform-dependent features}).
 @c COMMON
 @end defun
 
-@defun socket-recv! socket buf &optional flags
+@defun socket-recv! socket buf :optional flags
 @c EN
 Interface to @code{recv(2)}.  Receives a message from @var{socket},
 and stores it into @var{buf}, which must be a mutable uniform vector.
@@ -5590,7 +5582,7 @@ for the details.
 @c COMMON
 @end defun
 
-@defun socket-recvfrom! socket buf addrs &optional flags
+@defun socket-recvfrom! socket buf addrs :optional flags
 @c EN
 Interface to @code{recvfrom(2)}.  Receives a message from
 @var{socket}, which may be unconnected, and stores it to
@@ -5676,8 +5668,8 @@ for the details.
 @end defun
 
 
-@defun socket-recv socket bytes &optional flags
-@defunx socket-recvfrom socket bytes &optional flags
+@defun socket-recv socket bytes :optional flags
+@defunx socket-recvfrom socket bytes :optional flags
 @c EN
 Like @code{socket-recv!} and @code{socket-recvfrom!}, but
 these returns the received message as a (possibly incomplete)
@@ -6331,7 +6323,7 @@ so that a parameter can be used as if it were a procedure.
 @c COMMON
 @end deftp
 
-@defun make-parameter value &optional filter
+@defun make-parameter value :optional filter
 [SRFI-39]
 @c EN
 Creates a parameter whose initial value is @var{value}.
@@ -6381,7 +6373,7 @@ Some examples:
 (a) @result{} 2
 @end example
 
-@deffn {Method} parameter-observer-add! (p <parameter>) proc &optional when where
+@deffn {Method} parameter-observer-add! (p <parameter>) proc :optional when where
 @c EN
 Adds @var{proc} to "observer" procedures of a parameter @var{p}.
 Observer procedures are called either (1) just before
@@ -6433,7 +6425,7 @@ the observer list is shared by all threads.
 @c COMMON
 @end deffn
 
-@deffn {Method} parameter-observer-delete! (p <parameter>) proc &optional when
+@deffn {Method} parameter-observer-delete! (p <parameter>) proc :optional when
 @c EN
 Deletes @var{proc} from observer procedure list of a parameter @var{p}.
 If @var{proc} is not in the list, nothing happens.
@@ -7047,7 +7039,7 @@ the procedure is used as if it is the body of @code{else} option clause.
 @end defmac
 
 @c ----------------------------------------------------------------------
-@node High Level Process Interface, Reloading modules, Parsing command-line options, Library modules - Gauche extensions
+@node High Level Process Interface, Record types, Parsing command-line options, Library modules - Gauche extensions
 @section @code{gauche.process} - High Level Process Interface
 @c NODE 高レベルプロセスインタフェース, @code{gauche.process} - 高レベルプロセスインタフェース
 
@@ -7148,7 +7140,7 @@ so we treat them as exceptional situations.
 @end deftp
 
 
-@defun run-process cmd/args &keyword input output error @
+@defun run-process cmd/args :key input output error @
                    fork wait directory host sigmask
 @c EN
 Runs a command with arguments given to @var{cmd/args} in a subprocess
@@ -7430,7 +7422,7 @@ to inactive, it is removed from the list @code{process-list} returns.
 @c COMMON
 @end defun
 
-@defun process-wait process &optional nohang error-on-nonzero-status
+@defun process-wait process :optional nohang error-on-nonzero-status
 @c EN
 Obtains the exit status of the subprocess @var{process}, and stores it
 to @var{process}'s status slot.  The status can be obtained by
@@ -7464,7 +7456,7 @@ or @code{#f} otherwise.
 @c COMMON
 @end defun
 
-@defun process-wait-any &optional nohang
+@defun process-wait-any :optional nohang
 @c EN
 Obtains the exit status of any of the subprocesses created by
 @code{run-process}.
@@ -7540,7 +7532,7 @@ Sends SIGKILL, SIGSTOP and SIGCONT to @var{process}, respectively.
 @node Process ports,  , Process object, High Level Process Interface
 @subsection Process ports
 
-@defun open-input-process-port command &keyword input error encoding conversion-buffer-size
+@defun open-input-process-port command :key input error encoding conversion-buffer-size
 @c EN
 Runs @var{command} asynchronously in a subprocess.  Returns
 two values, an input port which is connected to the stdout of the
@@ -7650,7 +7642,7 @@ you can use one of the following functions.
 @c COMMON
 @end defun
 
-@defun call-with-input-process command proc &keyword input error encoding conversion-buffer-size on-abnormal-exit
+@defun call-with-input-process command proc :key input error encoding conversion-buffer-size on-abnormal-exit
 @c EN
 Runs @var{command} in a subprocess and pipes its stdout
 to an input port, then call @var{proc} with the port as an argument.
@@ -7698,7 +7690,7 @@ as @code{open-input-process-port} above.
 @end example
 @end defun
 
-@defun with-input-from-process command thunk &keyword input error encoding conversion-buffer-size on-abnormal-exit
+@defun with-input-from-process command thunk :key input error encoding conversion-buffer-size on-abnormal-exit
 @c EN
 Runs @var{command} in a subprocess, and calls @var{thunk}
 with its current input port connected to the command's stdout.
@@ -7721,7 +7713,7 @@ as @code{call-with-input-process} above.
 @end example
 @end defun
 
-@defun open-output-process-port command &keyword output error encoding conversion-buffer-size
+@defun open-output-process-port command :key output error encoding conversion-buffer-size
 @c EN
 Runs @code{command} in a subprocess asynchronously.  Returns two values,
 an output port which is connected to the stdin of the subprocess.
@@ -7758,7 +7750,7 @@ at appropriate time.
 @c COMMON
 @end defun
 
-@defun call-with-output-process command proc &keyword output error encoding conversion-buffer-size on-abnormal-exit
+@defun call-with-output-process command proc :key output error encoding conversion-buffer-size on-abnormal-exit
 @c EN
 Runs @code{command} in a subprocess, and calls @var{proc} 
 with an output port which is connected to the stdin of the command.
@@ -7784,7 +7776,7 @@ which is the same as described in @code{call-with-input-process}.
 @end example
 @end defun
 
-@defun with-output-to-process command thunk &keyword output error encoding conversion-buffer-size on-abnormal-exit
+@defun with-output-to-process command thunk :key output error encoding conversion-buffer-size on-abnormal-exit
 @c EN
 Same as @code{call-with-output-process}, except that the
 output port which is connected to the stdin of the command
@@ -7796,7 +7788,7 @@ is set to the current output port while executing @var{thunk}.
 @c COMMON
 @end defun
 
-@defun call-with-process-io command proc &keyword error encoding conversion-buffer-size on-abnormal-exit
+@defun call-with-process-io command proc :key error encoding conversion-buffer-size on-abnormal-exit
 @c EN
 Runs @var{command} in a subprocess, and calls @var{proc}
 with two arguments; the first argument is an input port which
@@ -7819,8 +7811,8 @@ returns or raises an error.
 @c COMMON
 @end defun
 
-@defun process-output->string command &keyword error encoding conversion-buffer-size on-abnormal-exit
-@defunx process-output->string-list command &keyword error encoding conversion-buffer-size on-abnormal-exit
+@defun process-output->string command :key error encoding conversion-buffer-size on-abnormal-exit
+@defunx process-output->string-list command :key error encoding conversion-buffer-size on-abnormal-exit
 @c EN
 Runs @var{command} and collects its output (to stdout) and returns them.
 @code{process-output->string} concatenates all the output from @var{command}
@@ -7888,7 +7880,472 @@ Windowsネイティブビルドの場合、この手続きはWindowsの標準C�
 @end defun
 
 @c ----------------------------------------------------------------------
-@node Reloading modules, Simple dispatcher, High Level Process Interface, Library modules - Gauche extensions
+@node Record types, Reloading modules, High Level Process Interface, Library modules - Gauche extensions
+@section @code{gauche.record} - Record types
+@c NODE レコード型, @code{gauche.record} - レコード型
+
+@deftp {Module} gauche.record
+@mdindex gauche.record
+This module provides a facility to define @emph{record types}, 
+user-defined aggregate types.  
+The API is upper compatible to SRFI-9 (Defining Record Types) and 
+SRFI-99 (ERR5RS Records).
+@end deftp
+
+Record types are implemented as Gauche's classes, 
+but have different characteristics from the general classes.
+@xref{Record types introduction}, for when you want to
+use record types.
+
+The record API consists of three layers, following
+SRFI-99 and R6RS design.  
+
+The syntactic layer is the @code{define-record-type} macro
+that conveniently defines a record type and related procedures
+(a constructor, a predictate, accessors and modifiers) all at once
+declaratively.   Knowing this macro alone is sufficient for
+most common usage of records.
+
+The inspection layer defines common procedures
+to query information to the records and record types.
+
+The procedural layer is a low-level machinery to implement
+the syntactic layer; you don't usually need to use them
+in day-to-day programming, but they might be handy to
+create record types on-the-fly at runtime.
+
+@menu
+* Record types introduction::   
+* Record types syntactic layer::  
+* Record types inspection layer::  
+* Record types procedural layer::  
+* Pseudo record types::         
+@end menu
+
+@node Record types introduction, Record types syntactic layer, Record types, Record types
+@subsection Introduction
+
+Gauche provides a general way for users to define new types as new
+classes, using object system (@xref{Object system}), and indeed
+record types are implemented as Gauche's classes.
+However, using record types instead of classes has several advantages.
+
+@itemize
+@item
+It is portable.  The API conforms two major record SRFIs,
+SRFI-9 and SRFI-99, so the code using record types can run on
+various Scheme systems.
+@item
+It is efficient.  Record types are less flexibile than classes,
+but that allows Gauche to optimize more.  Hence creating records and
+accessing/modifying them are much faster than creating instances
+of general classes and accessing/modifying them.  It makes record
+types preferable choice when you only need a mechanism to bundle
+several related values to carry around, and don't need fancier
+mechanisms such as class redefinitions.
+@item
+As Gauche's extention, you can define pseudo record types,
+which interpretes ordinary aggregate types such as vectors and lists
+as records.  (For Common Lisp users; it is like the @code{:type}
+option of @code{defstruct}).
+This helps flexibility of interface.  For example, you can ask
+your library's users to pass a point in a vector of three numbers,
+instead of asking users to pack their point data into your
+custom point record type.  Yet inside your library you can
+treat the passed data as if it is your point record type.
+See @ref{Pseudo record types}, for more details.
+@end itemize
+
+The disadvantage of record types is that 
+they don't obey Gauche's class redefinition
+protocol (@xref{Class redefinition}).
+That is, if you redefine a record with the same name,
+it creates a new record type unrelated to the old one.
+The record instances created from the old definition
+won't be updated according to the new definition.
+
+More importantly, record constructors, accessors and modifiers
+are tend to be inlined where they are used, to achieve
+better performance.   Since they are inlined, the code
+that uses those procedures are not affected when
+the record type is redefined.
+This means if you redefine a record type, you have to 
+reload (recompile) the sources that uses any of
+record constructors, accessors or modifiers.
+
+
+@node Record types syntactic layer, Record types inspection layer, Record types introduction, Record types
+@subsection Syntactic Layer
+
+
+@defmac define-record-type type-spec ctor-spec pred-spec field-spec @dots{}
+[SRFI-9][SRFI-99+]
+Defines a record type, and optionally defines
+a constructor, a predicate, and field accessors and modifiers.
+
+The @var{type-spec} argument names the record type,
+and optionally specifies the supertype (@var{parent}).
+
+@example
+@var{type-spec} : @var{type-name} | (@var{type-name} @var{parent})
+
+@var{type-name} : @r{identifier}
+@var{parent} : @r{expression}
+@end example
+
+The @var{type-name} identifier will be bound to a
+@emph{record type descriptor}, or rtd,
+which can be used for introspection and reflection.
+See @ref{Record types inspection layer} and @ref{Record types procedural layer}
+for possible operations for record types.
+In Gauche, a record type descriptor is a @code{<class>} with a metaclass
+@code{<record-meta>}.
+
+The @var{parent} expression should evaluate to a record type descriptor.
+If given, the defined record type inherits it; that is, all the
+slots defined in the parent type are available to the @var{type-name}
+as well, and the instance of @var{type-name} answers @code{#t} to the
+predicate of the parent type.
+
+Since a record type is also a class, parent type is also a superclass
+of the defined record type.  However, record types are limited to
+have single inheritance.
+
+You can give a pseudo record base type as @var{parent} to define a
+pseudo record type, which allows you to access ordinary aggregates
+like vectors as records.  See @ref{Pseudo record types} for more details.
+
+The @var{ctor-spec} defines the constructor of the record instance.
+
+@example
+@var{ctor-spec} : #f | #t | @var{ctor-name}
+          | (@var{ctor-name} @var{field-name} @dots{})
+
+@var{ctor-name} : @r{identifier}
+@var{field-name} : @r{identifier}
+@end example
+
+If it is @code{#f}, no constructor is created.
+If it is @code{#t}, a default constructor is created with a name
+@code{make-@var{type-name}}.  If it is a single identifier 
+@var{ctor-name}, a default constructor is created with the name.
+The default constructor takes as many arguments as
+the number of fields of the record, including inherited ones if any.
+When called, it allocates an instance of the record, and initialize its
+fields with the given arguments in the order (inhertied fields comes
+first), and returns the record.
+
+The last variation of @var{ctor-spec} creates a custom
+constructor with the name @var{ctor-name}.  The custom constructor
+takes as many arguments as the given @var{field-name}s, and initializes
+the named fields.  If the inherited record type has a field of the same name
+as the ancestor record type, only the inherited ones are initialized.
+In Gauche, uninitialized fields remains unbound until some value is
+set to it.
+
+The @var{pred-spec} defines the predicate of the record instance,
+which takes one argument and returns @code{#t} iff it is an instance
+of the defined record type or its descendants.
+
+@example
+@var{pred-spec} : #f | #t | @var{pred-name}
+
+@var{pred-name} : @r{identifier}
+@end example
+
+If it is @code{#f}, no predicate is created.
+If it is @code{#t}, a predicate is created with a name
+@code{@var{type-name}?}.  If it is a single identifier,
+a predicate is created with the given name.
+
+The rest of the arguments specify fields (slots) of the record.
+
+@example
+@var{field-spec}
+ : @var{field-name}   ; @r{immutable, with default accessor}
+ | (@var{field-name}) ; @r{mutable, with default accessor/modifier}
+ | (@var{field-name} @var{accessor-name}); @r{immutable}
+ | (@var{field-name} @var{accessor-name} @var{modifier-name}); @r{mutable}
+
+@var{field-name}    : @r{identifier}
+@var{accessor-name} : @r{identifier}
+@var{modifier-name} : @r{identifier}
+@end example
+
+The first and the third forms define immutable fields, which can only
+be intialized by the constructor but cannot be modified afterwards
+(thus such fields don't have modifiers).
+The second and the fourth forms define multable fields.
+
+The third and fourth forms explicitly name the accessor and modifier.
+With the first and second forms, on the other hand,
+the accessor is named as
+@code{@var{type-name}-@var{field-name}}, and the modifier is named
+as @code{@var{type-name}-@var{field-name}-set!}.
+@end defmac
+
+Let's see some examples.  Here's a definition of a record
+type @code{point}.
+
+@example
+(define-record-type point #t #t
+  x y z)
+@end example
+
+The variable @code{point} is bound to a record type descriptor,
+which is just a class.  But you can take its class and see it is
+indeed an instance of @code{<record-meta>} metaclass.
+
+@example
+point            @result{} #<class point>
+(class-of point) @result{} #<class <record-meta>>
+@end example
+
+You can create an instance of @code{point} by the default
+constructor @code{make-point}.  The predicate is given the
+default name @code{point?}, and you can access the fields
+of the created record by @code{point-x} etc.
+
+@example
+(define p (make-point 1 2 3))
+
+(point? p)  @result{} #t
+(point-x p) @result{} 1
+(point-y p) @result{} 2
+(point-z p) @result{} 3
+@end example
+
+Since we defined all fields immutable, we cannot modify 
+the instance @code{p}.
+
+Here's a mutable version of point, @code{mpoint}.
+You can modify its fields by modifier procedures and
+generalized @code{set!}.
+
+@example
+(define-record-type mpoint #t #t
+  (x) (y) (z))
+
+(define p2 (make-mpoint 1 2 3)) ; @r{create an instance}
+
+(mpoint-x p2)  @result{} 1
+
+(mpoint-x-set! p2 4)            ; @r{default modifier}
+(mpoint-x p2)  @result{} 4
+
+(set! (mpoint-x p2) 6)          ; @r{generalized @code{set!} also works} 
+(mpoint-x p2)  @result{} 6
+@end example
+
+Next one is an example of inheritance.  
+Note that the default constructor takes arguments for
+fields of the parent record as well.
+
+@example
+(define-record-type (qpoint mpoint) #t #t
+  (w))
+
+(define p3 (make-qpoint 1 2 3 4))
+
+(qpoint? p3)  @result{} #t      ; @r{p3 is a qpoint}
+(mpoint? p3)  @result{} #t      ; @r{... and also an mpoint}
+
+(mpoint-x p3) @result{} 1       ; @r{accessing inherited field}
+(mpoint-y p3) @result{} 2
+(mpoint-z p3) @result{} 3
+(qpoint-w p3) @result{} 4
+@end example
+
+A small caveat: Accessors and modifiers for inherited fields
+(e.g. @code{qpoint-x} etc.) are not created.
+
+Gauche's convention is to enclose class name by @code{<>}.
+You can follow the convention and still explicitly gives
+simpler names (instead of @code{make-<point>} or @code{<point>-x}):
+
+@example
+(define-record-type <point> make-point point?
+  (x point-x)
+  (y point-y)
+  (z point-z))
+@end example
+
+
+@node Record types inspection layer, Record types procedural layer, Record types syntactic layer, Record types
+@subsection Inspection layer
+
+This layer provides common procedures that operates on record type
+descriptors and record instances.
+
+Note that a record type descriptor is a class in Gauche, so 
+you can also use operators on classes (e.g. @code{class-name},
+@code{class-slots} etc.) on record type descriptors as well.
+However, these procedures are more portable.
+
+@defun record? obj
+[SRFI-99][R6RS]
+Returns @code{#t} iff @var{obj} is an instance of record type,
+@code{#f} otherwise.
+@end defun
+
+@defun record-rtd record
+[SRFI-99][R6RS]
+Returns the record type descriptor of the record instance.
+@end defun
+
+@defun rtd-name rtd
+[SRFI-99]
+Returns the name of the record type descriptor @var{rtd}.
+@end defun
+
+@defun rtd-parent rtd
+[SRFI-99]
+Returns the parent type of the record type descriptor @var{rtd}.
+If @var{rtd} doesn't have a parent, @code{#f} is returned.
+@end defun
+
+@defun rtd-field-names rtd
+[SRFI-99]
+Returns a vector of symbols, each of which is the names of the direct
+fields of the record represented by @var{rtd}.   The result doesn't
+include inherited fields.
+@end defun
+
+@defun rtd-all-field-names rtd
+[SRFI-99]
+Returns a vector of symbols, each of which is the names of the
+fields of the record represented by @var{rtd}.   The result includes
+all inherited fields.
+@end defun
+
+@defun rtd-field-mutable? rtd field-name
+[SRFI-99]
+Returns @code{#t} iff the field with the name @var{field-name}
+of a record represened by @var{rtd} is mutable.
+@end defun
+
+
+@node Record types procedural layer, Pseudo record types, Record types inspection layer, Record types
+@subsection Procedural layer
+
+These procedures are low-level machinery on top of which
+@code{define-record-type} is implemented.  They can be used
+to create a new record type at runtime.
+
+@defun make-rtd name field-specs :optional parent
+[SRFI-99]
+Creates and returns a new record type descriptor with name @var{name} and
+having fields specified by @var{field-specs}.  If @var{parent}
+is given, it must be a record type descriptor or @code{#f}.
+If it is a record type descriptor, the created record type
+inherits from it.
+
+The @var{field-specs} argument must be a vector, each
+element of which is a @emph{field specifier}.  A field
+specifier can be a symbol, a list @code{(mutable @var{symbol})},
+or a list @code{(immutable @var{symbol})}.  The @var{symbol} names
+the field.  A single symbol or @code{(mutable @var{symbol})} format
+makes the field mutable, and @code{(immutable @var{symbol})} format
+makes the field immutable.
+
+Note: Gauche does not implement the extension suggested in
+SRFI-99 yet, which is @code{sealed}, @code{opaque} and @code{uid}
+arguments.
+@end defun
+
+@defun rtd? obj
+[SRFI-99]
+Returns @code{#t} if @var{obj} is a record type descriptor,
+@code{#f} otherwise.
+@end defun
+
+@defun rtd-constructor rtd :optional field-specs
+[SRFI-99]
+Returns a procedure that creates an instance record of
+the record type represented by @var{rtd}.
+Without @var{field-specs}, it returns the default constructor,
+which takes as many arguments as the number of fields of
+the record to initialize them.  
+
+You can give a vector of symbols as @var{field-specs}.  The @var{n}-th
+symbol specifies which field of the instance should be initialized
+by the @var{n}-th argument.   The @var{field-specs} vector cannot
+contain duplicate names.  If the record type defines a field with
+the same name as the one in the parent record type, the custom constructor
+can only initialize the field of the derived type's instance.
+@end defun
+
+@defun rtd-predicate rtd
+[SRFI-99]
+Returns a predicate to test an object is an instance of @var{rtd}.
+
+If @var{rtd} is a pseudo record type, the predicate merely tests
+the given object is in an appropriate type and has enough size
+to hold the contents.   See @ref{Pseudo record types} for the details.
+@end defun
+
+@defun rtd-accessor rtd field-name
+[SRFI-99]
+Returns a procedure that takes one argument, an instance of @var{rtd},
+and returns the value of the @var{field-name} of the instance.
+
+An error is signalled if the record type doesn't have the field
+of name @var{field-name}.
+
+If @var{rtd} is inherits other record types, and it defines a field
+of the same name as inherited ones, then the accessor returned by
+this procedure retrieves the value of the field of the derived record.
+@end defun
+
+@defun rtd-mutator rtd field-name
+[SRFI-99]
+Returns a procedure that takes two arguments, an instance of @var{rtd}
+and a value, and sets the latter as the value of the @var{field-name}
+of the instance.
+
+An error is signalled if the record type doesn't have the field
+of name @var{field-name}, or the named field is immutable.
+
+Like @code{rtd-accessor}, if the record has a field with the same
+name as inherited one, the modifier returned by this procedure
+only modifies the field of the derived record.
+@end defun
+
+
+@node Pseudo record types,  , Record types procedural layer, Record types
+@subsection Pseudo record types
+
+A pseudo record type is a record type that does not create 
+an instance.  Instead it treats an object of other collection
+types, such as a vector, as if it had named fields.  It's easier
+to understand by an example:
+
+@example
+(define-record-type (vpoint (pseudo-rtd <vector>)) #t #t
+  (x) (y) (z))
+
+(make-vpoint 1 2 3)  @result{} #(1 2 3)
+(vpoint-x #(1 2 3))  @result{} 1
+
+(rlet1 v (make-vpoint 1 2 3)
+  (set! (vpoint-y v) -1))
+ @result{} #(1 -1 3)
+@end example
+
+To create a pseudo record type, specify another pseudo
+record type as a parent.   The procedure @code{pseudo-rtd}
+can be used to obtain a base pseudo record type of
+the suitable instance class.
+
+@defun pseudo-rtd instance-class
+Returns a pseudo rtd suitable to use @var{instance-class} as
+a pseudo record.
+@end defun
+
+
+
+@c ----------------------------------------------------------------------
+@node Reloading modules, Simple dispatcher, Record types, Library modules - Gauche extensions
 @section @code{gauche.reload} - Reloading modules
 @c NODE モジュールの再ロード, @code{gauche.reload} - モジュールの再ロード
 
@@ -7976,7 +8433,7 @@ Take a look at the code if you want to know the exact behavior.
 @c COMMON
 @end deftp
 
-@defun reload module-name &optional rule @dots{}
+@defun reload module-name :optional rule @dots{}
 @c EN
 Reloads the specified module.   You can optionally specify
 redefinition rules by @var{rule} @dots{},
@@ -7988,7 +8445,7 @@ where each @var{rule} is the term @code{<rule>} defined above.
 @c COMMON
 @end defun
 
-@defun reload-modified-modules &optional module-rules
+@defun reload-modified-modules :optional module-rules
 @c EN
 Reloads module(s) that have been modified since they are loaded
 last time.  If optional @var{module-rules} is given, it is
@@ -8007,7 +8464,7 @@ rules by @code{module-reload-rules}.
 @c COMMON
 @end defun
 
-@defun module-reload-rules &optional module-rules
+@defun module-reload-rules :optional module-rules
 @c EN
 This is a parameter (@xref{Parameters}) that keeps
 the default module rules for @code{reload-modified-modules}.
@@ -8023,7 +8480,7 @@ current module rules.
 @c COMMON
 @end defun
 
-@defun reload-verbose &optional flag
+@defun reload-verbose :optional flag
 @c EN
 This is a parameter to control verbosity of the reloading procedures.
 If called without arguments, returns the current verbosity flag.
@@ -8144,7 +8601,7 @@ deletes all the handlers waiting for writable condition.
 @end deffn
 
 
-@deffn {Method} selector-select (self <selector>) &optional (timeout #f)
+@deffn {Method} selector-select (self <selector>) :optional (timeout #f)
 @c EN
 Dispatcher body.  Waits for the conditions registered in @var{self},
 and when it occurs, calls the associated handler.
@@ -8272,7 +8729,7 @@ Gauche組み込みクラスのうち、リスト、ベクター、そして文�
 @subsection Fundamental sequence accessors
 @c NODE 基本的なシーケンスのアクセサ
 
-@deffn {Method} ref (seq <sequence>) index &optional fallback
+@deffn {Method} ref (seq <sequence>) index :optional fallback
 @c EN
 Returns @var{index}-th element of the sequence @var{seq}.
 This method enables uniform access for any sequence types.
@@ -8342,7 +8799,7 @@ or deleting elements.
 @subsection Slicing sequence
 @c NODE シーケンスのスライス
 
-@deffn {Method} subseq (seq <sequence>) &optional start end
+@deffn {Method} subseq (seq <sequence>) :optional start end
 @c EN
 Retrieve a subsequence of the sequence @var{seq}, from
 @var{start}-th element (inclusive) to @var{end}-th element (exclusive).
@@ -8548,7 +9005,7 @@ See @ref{Selection and searching in collection}.
 
 @subsubheading Grouping
 
-@deffn {Generic function} group-sequence seq &keyword key test
+@deffn {Generic function} group-sequence seq :key key test
 @c EN
 Groups consecutive elements in a sequence @var{seq} which
 have the common key value.  A key value of an element is
@@ -8599,7 +9056,7 @@ use @code{group-collection}
 
 @subsubheading Permutation and shuffling
 
-@deffn {Generic function} permute (src <sequence>) (permuter <sequence>) &optional fallback
+@deffn {Generic function} permute (src <sequence>) (permuter <sequence>) :optional fallback
 Returns a newly created sequence of the same type as @var{src}, in which
 the elements are permuted from @var{src} according to @var{permuter}.
 
@@ -8632,7 +9089,7 @@ If @var{fallback} is given, what value is used depends on the result of
 @end example
 @end deffn
 
-@deffn {Generic function} permute-to (class <class>) (src <sequence>) (permuter <sequence>) &optional fallback
+@deffn {Generic function} permute-to (class <class>) (src <sequence>) (permuter <sequence>) :optional fallback
 Like @code{permute}, but the result will be an instance of the given @var{class}
 instead of the class of @var{src}.
 
@@ -8643,13 +9100,13 @@ instead of the class of @var{src}.
 @end example
 @end deffn
 
-@deffn {Generic function} permute! (src <sequence>) (permuter <sequence>) &optional fallback
+@deffn {Generic function} permute! (src <sequence>) (permuter <sequence>) :optional fallback
 Also like @code{permute}, but the result is stored back to @var{src}.
 @var{Src} must be a mutable sequence, and the length of @var{src} and
 @var{permuter} must be the same.
 @end deffn
 
-@deffn {Generic function} shuffle (src <sequence>) &optional random-source
+@deffn {Generic function} shuffle (src <sequence>) :optional random-source
 Returns a new sequence of the same type and size as @var{src},
 in which elements are randomly permuted.
 
@@ -8663,12 +9120,12 @@ By default it uses @code{default-random-source}, but you can pass
 an alternative random source by the optional argument.
 @end deffn
 
-@deffn {Generic function} shuffle-to (class <class>) (src <sequence>) &optional random-source
+@deffn {Generic function} shuffle-to (class <class>) (src <sequence>) :optional random-source
 Like @code{shuffle}, except that the result will be an instance of 
 @var{class} instead of the class of @var{src}.
 @end deffn
 
-@deffn {Generic function} shuffle! (src <sequence>) &optional random-source
+@deffn {Generic function} shuffle! (src <sequence>) :optional random-source
 Like @code{shuffle}, but the result is stored back to @var{src}.
 @var{Src} must be a mutable sequence.
 @end deffn
@@ -9151,7 +9608,7 @@ terminate the connection.
 @c COMMON
 @end defun
 
-@defun sys-openpty &optional term
+@defun sys-openpty :optional term
 @c EN
 Opens a pair of pseudo ttys, one for master and the other for slave,
 then returns two integers which are their file descriptors.
@@ -9180,7 +9637,7 @@ This function is available only if the system supports @code{openpty(3)}.
 @c COMMON
 @end defun
 
-@defun sys-forkpty &optional term
+@defun sys-forkpty :optional term
 @c EN
 Opens a pair of pseudo ttys, one for master and the other for slave,
 sets the slave pty suitable for login terminal, then fork(2).
@@ -9220,7 +9677,7 @@ running multiple threads, use @code{sys-forkpty-and-exec} below.
 @c COMMON
 @end defun
 
-@defun sys-forkpty-and-exec command args &keyword iomap term sigmask
+@defun sys-forkpty-and-exec command args :key iomap term sigmask
 @c EN
 Does @code{sys-forkpty}, and lets the child process
 immediately @code{exec}s the specified @var{command}
@@ -9720,7 +10177,7 @@ and this environment variable is ignored.
 @subheading 個々のテスト
 @c COMMON
 
-@defmac test* name expected expr &optional compare
+@defmac test* name expected expr :optional compare
 @c EN
 A convenience macro that wraps @var{expr} by lambda.
 @c JP
@@ -9733,7 +10190,7 @@ A convenience macro that wraps @var{expr} by lambda.
 @end example
 @end defmac
 
-@defun test name expected thunk &optional check
+@defun test name expected thunk :optional check
 @c EN
 Calls @var{thunk}, and checks its result fits @var{expected}
 using a procedure @var{check}, which
@@ -9804,7 +10261,7 @@ of error.  See the entry of @code{test-error} below for the details.
 @subheading 異常系をテストする
 @c COMMON
 
-@defun test-error &optional (condition-type <error>)
+@defun test-error :optional (condition-type <error>)
 @c EN
 Returns a new @code{<test-error>} object that mathes with
 other @code{<test-error>} object with the given @var{condition-type}.
@@ -9891,7 +10348,7 @@ env GAUCHE_TEST_REPORT_ERROR=1 gosh mytest.scm
 @subheading モジュールのテスト
 @c COMMON
 
-@defun test-module module &keyword allow-undefined
+@defun test-module module :key allow-undefined
 @c EN
 @var{Module} must be a symbol module name or a module.
 This procedure performs some heuristic consistency check of
@@ -10315,7 +10772,7 @@ Returns @code{#t} if @var{obj} is a thread, @code{#f} otherwise.
 @c COMMON
 @end defun
 
-@defun make-thread thunk &optional name
+@defun make-thread thunk :optional name
 @c EN
 [SRFI-18], [SRFI-21]
 Creates and returns a new thread to execute @var{thunk}.
@@ -10472,7 +10929,7 @@ immediately.
 @c COMMON
 @end defun
 
-@defun thread-stop! thread &optional timeout timeout-val
+@defun thread-stop! thread :optional timeout timeout-val
 Stops execution of the target @var{thread} temporarily.
 You can resume the execution of the @var{thread} by @code{thread-cont!}.
 
@@ -10563,7 +11020,7 @@ so that you will know the situation.  @xref{Synchronization primitives}.
 @end defun
 
 
-@defun thread-join! thread &optional timeout timeout-val
+@defun thread-join! thread :optional timeout timeout-val
 @c EN
 [SRFI-18], [SRFI-21]
 Waits termination of @var{thread}, or until the timeout is reached
@@ -10692,7 +11149,7 @@ Returns @code{#t} if @var{obj} is a mutex, @code{#f} otherwise.
 @c COMMON
 @end defun
 
-@defun make-mutex &optional name
+@defun make-mutex :optional name
 @c EN
 [SRFI-18], [SRFI-21]
 Creates and returns a new mutex object.
@@ -10759,7 +11216,7 @@ Mutexはunlocked/not-abandoned(ロックされておらず、放棄されてい�
 @end table
 @end defun
 
-@defun mutex-lock! mutex &optional timeout thread
+@defun mutex-lock! mutex :optional timeout thread
 @c EN
 [SRFI-18], [SRFI-21]
 Locks @var{mutex}.  If @var{mutex} is in unlocked/not-abandoned
@@ -10848,7 +11305,7 @@ The following example is taken from SRFI-18 document:
 @end example
 @end defun
 
-@defun mutex-unlock! mutex &optional condition-variable timeout
+@defun mutex-unlock! mutex :optional condition-variable timeout
 @c EN
 [SRFI-18], [SRFI-21]
 Unlocks @var{mutex}.  The state of @var{mutex} becomes unlocked/not-abandoned.
@@ -11017,7 +11474,7 @@ Returns @code{#t} if @var{obj} is a condition variable,
 @c COMMON
 @end defun
 
-@defun make-condition-variable &optional name
+@defun make-condition-variable :optional name
 @c EN
 [SRFI-18], [SRFI-21]
 Returns a new condition variable.  You can give its name by
@@ -11711,7 +12168,7 @@ and in the valid range of the vector.
 @end example
 @end deftp
 
-@deftp {Function} make-@var{TAG}vector @r{@var{len} @var{&optional} @var{fill}}
+@deftp {Function} make-@var{TAG}vector @r{@var{len} @var{:optional} @var{fill}}
 @findex make-s8vector
 @findex make-u8vector
 @findex make-s16vector
@@ -11775,7 +12232,7 @@ if you import @code{gauche.collection}
 @end example
 @end deftp
 
-@deftp {Function} @var{TAG}vector-ref @r{@var{vec} @var{k} &optional @var{fallback}}
+@deftp {Function} @var{TAG}vector-ref @r{@var{vec} @var{k} :optional @var{fallback}}
 @findex s8vector-ref
 @findex u8vector-ref
 @findex s16vector-ref
@@ -11815,7 +12272,7 @@ if you import @code{gauche.collection}.
 @end example
 @end deftp
 
-@deftp {Function} @var{TAG}vector-set! @r{@var{vec} @var{k} @var{n} &optional @var{clamp}}
+@deftp {Function} @var{TAG}vector-set! @r{@var{vec} @var{k} @var{n} :optional @var{clamp}}
 @findex s8vector-set!
 @findex u8vector-set!
 @findex s16vector-set!
@@ -11857,7 +12314,7 @@ if you import @code{gauche.collection}.
 @end example
 @end deftp
 
-@deftp {Function} @var{TAG}vector-fill! @r{@var{vec} @var{fill} &optional @var{start} @var{end}}
+@deftp {Function} @var{TAG}vector-fill! @r{@var{vec} @var{fill} :optional @var{start} @var{end}}
 @findex s8vector-fill!
 @findex u8vector-fill!
 @findex s16vector-fill!
@@ -11879,7 +12336,7 @@ if they are given.
 @c COMMON
 @end deftp
 
-@deftp {Function} @var{TAG}vector-copy @r{@var{vec} &optional @var{start} @var{end}}
+@deftp {Function} @var{TAG}vector-copy @r{@var{vec} :optional @var{start} @var{end}}
 @findex s8vector-copy
 @findex u8vector-copy
 @findex s16vector-copy
@@ -11908,7 +12365,7 @@ If @var{start} and/or @var{end} are given, they limit the range of
 @end example
 @end deftp
 
-@deftp {Function} @var{TAG}vector-copy! @r{@var{target} @var{tstart} @var{source} &optional @var{sstart} @var{send}}
+@deftp {Function} @var{TAG}vector-copy! @r{@var{target} @var{tstart} @var{source} :optional @var{sstart} @var{send}}
 @findex s8vector-copy!
 @findex u8vector-copy!
 @findex s16vector-copy!
@@ -11998,7 +12455,7 @@ various operations on the homogeneous vectors.
 @subsection Uvector conversion operations
 @c NODE ユニフォームベクタの変換
 
-@deftp {Function} @var{TAG}vector->list @r{@var{vec} &optional @var{start} @var{end}}
+@deftp {Function} @var{TAG}vector->list @r{@var{vec} :optional @var{start} @var{end}}
 @findex s8vector->list
 @findex u8vector->list
 @findex s16vector->list
@@ -12034,7 +12491,7 @@ if you import @code{gauche.collection}.
 @end example
 @end deftp
 
-@deftp {Function} @var{TAG}vector->vector @r{@var{vec} &optional @var{start} @var{end}}
+@deftp {Function} @var{TAG}vector->vector @r{@var{vec} :optional @var{start} @var{end}}
 @findex s8vector->vector
 @findex u8vector->vector
 @findex s16vector->vector
@@ -12070,7 +12527,7 @@ if you import @code{gauche.collection}.
 @end example
 @end deftp
 
-@deftp {Function} list->@var{TAG}vector @r{@var{list} &optional @var{clamp}}
+@deftp {Function} list->@var{TAG}vector @r{@var{list} :optional @var{clamp}}
 @findex list->s8vector
 @findex list->u8vector
 @findex list->s16vector
@@ -12106,7 +12563,7 @@ if you import @code{gauche.collection}.
 @end example
 @end deftp
 
-@deftp {Function} vector->@var{TAG}vector @r{@var{vec} &optional @var{start} @var{end} @var{clamp}}
+@deftp {Function} vector->@var{TAG}vector @r{@var{vec} :optional @var{start} @var{end} @var{clamp}}
 @findex vector->s8vector
 @findex vector->u8vector
 @findex vector->s16vector
@@ -12145,8 +12602,8 @@ if you import @code{gauche.collection}.
 @end example
 @end deftp
 
-@defun string->s8vector string &optional start end
-@defunx string->u8vector string &optional start end
+@defun string->s8vector string :optional start end
+@defunx string->u8vector string :optional start end
 @c EN
 Returns an s8vector or u8vector whose byte sequence is the same
 as the internal representation of the given string.
@@ -12175,8 +12632,8 @@ u8vectorを返します。省略可能な範囲引数@var{start}、@var{end}は�
 @end example
 @end defun
 
-@defun string->s8vector! target tstart string &optional start end
-@defunx string->u8vector! target tstart string &optional start end
+@defun string->s8vector! target tstart string :optional start end
+@defunx string->u8vector! target tstart string :optional start end
 @c EN
 @var{Target} must be an s8vector or a u8vector, respectively.
 @var{Target} must be mutable.
@@ -12203,8 +12660,8 @@ Returns @var{target}.
 
 @end defun
 
-@defun s8vector->string vec &optional start end
-@defunx u8vector->string vec &optional start end
+@defun s8vector->string vec :optional start end
+@defunx u8vector->string vec :optional start end
 @c EN
 Converts a byte sequence in s8vector or u8vector to a string that
 has the same byte sequence.  Optional range arguments @var{start} and
@@ -12223,8 +12680,8 @@ of the string.
 @c COMMON
 @end defun
 
-@defun string->s32vector string &optional start end
-@defunx string->u32vector string &optional start end
+@defun string->s32vector string :optional start end
+@defunx string->u32vector string :optional start end
 @c EN
 Returns an s32vector or u32vector whose elements are
 the internal codes of the characters in the string.
@@ -12244,8 +12701,8 @@ s32vectorもしくはu32vectorを返します。
 @c COMMON
 @end defun
 
-@defun s32vector->string vec &optional start end
-@defunx u32vector->string vec &optional start end
+@defun s32vector->string vec :optional start end
+@defunx u32vector->string vec :optional start end
 @c EN
 Without @var{start} and @var{end}, these procedures work like this:
 @c JP
@@ -12264,7 +12721,7 @@ the range of conversion between them.
 @c COMMON
 @end defun
 
-@defun uvector-alias uvector-class vec &optional start end
+@defun uvector-alias uvector-class vec :optional start end
 @c EN
 This procedure creates an uvector of class @var{uvector-class}
 that shares the storage of the given uniform vector @var{vec}.
@@ -12333,12 +12790,12 @@ alignment constraint.
 @subsection Uvector numeric operations
 @c NODE ユニフォームベクタの数値演算
 
-@deftp {Function} @var{TAG}vector-add @r{@var{vec} @var{val} &optional @var{clamp}}
-@deftpx {Function} @var{TAG}vector-add! @r{@var{vec} @var{val} &optional @var{clamp}}
-@deftpx {Function} @var{TAG}vector-sub @r{@var{vec} @var{val} &optional @var{clamp}}
-@deftpx {Function} @var{TAG}vector-sub! @r{@var{vec} @var{val} &optional @var{clamp}}
-@deftpx {Function} @var{TAG}vector-mul @r{@var{vec} @var{val} &optional @var{clamp}}
-@deftpx {Function} @var{TAG}vector-mul! @r{@var{vec} @var{val} &optional @var{clamp}}
+@deftp {Function} @var{TAG}vector-add @r{@var{vec} @var{val} :optional @var{clamp}}
+@deftpx {Function} @var{TAG}vector-add! @r{@var{vec} @var{val} :optional @var{clamp}}
+@deftpx {Function} @var{TAG}vector-sub @r{@var{vec} @var{val} :optional @var{clamp}}
+@deftpx {Function} @var{TAG}vector-sub! @r{@var{vec} @var{val} :optional @var{clamp}}
+@deftpx {Function} @var{TAG}vector-mul @r{@var{vec} @var{val} :optional @var{clamp}}
+@deftpx {Function} @var{TAG}vector-mul! @r{@var{vec} @var{val} :optional @var{clamp}}
 @findex s8vector-add
 @findex s8vector-add!
 @findex s8vector-sub
@@ -12713,7 +13170,7 @@ So you might want to use it for binary I/O.  Yes, you can do it.
 できます。それなら、それをバイナリI/Oに使えないでしょうか。もちろんできます。
 @c COMMON
 
-@defun read-block! vec &optional iport start end endian
+@defun read-block! vec :optional iport start end endian
 @c EN
 Reads a chunk of data from the given input port @var{iport},
 and stores it to the uniform vector @var{vec}.
@@ -12789,7 +13246,7 @@ s8vectorとu8vector以外のユニフォームベクタを与えた場合は
 @c COMMON
 @end defun
 
-@defun write-block vec &optional oport start end endian
+@defun write-block vec :optional oport start end endian
 @c EN
 Writes out the content of the uniform vector @var{vec} 'as is'
 to the output port @var{oport}.   If @var{oport} is omitted,
@@ -13875,3 +14332,8 @@ running in a different thread.
 それは別のスレッドで走っていると考えておくべきです。
 @c COMMON
 @end itemize
+
+@c Local variables:
+@c mode: texinfo
+@c coding: utf-8
+@c end:

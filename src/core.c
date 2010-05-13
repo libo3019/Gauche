@@ -65,6 +65,7 @@ static struct {
  */
 
 extern void Scm__InitModule(void);
+extern void Scm__InitModulePost(void);
 extern void Scm__InitSymbol(void);
 extern void Scm__InitKeyword(void);
 extern void Scm__InitNumber(void);
@@ -137,6 +138,7 @@ void Scm_Init(const char *signature)
     Scm__InitNumber();
     Scm__InitChar();
     Scm__InitClass();
+    Scm__InitModulePost();
     Scm__InitCollection();
     Scm__InitExceptions();
     Scm__InitProc();
@@ -444,7 +446,7 @@ init_cond_features()
         { "srfi-6", NULL },         /* builtin */
         { "srfi-7", NULL },         /* autoloaded */
         { "srfi-8", NULL },         /* builtin */
-        { "srfi-9", "srfi-9" },
+        { "srfi-9", "gauche.record" },
         { "srfi-10", NULL },
         { "srfi-11", "srfi-11" },
         { "srfi-13", "srfi-13" },
@@ -476,6 +478,8 @@ init_cond_features()
         { "srfi-61", NULL },
         { "srfi-62", NULL },
         { "srfi-87", NULL },
+        { "srfi-98", "srfi-98" },
+        { "srfi-99", "gauche.record" },
         { NULL, NULL }
     };
 

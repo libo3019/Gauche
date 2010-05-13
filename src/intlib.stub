@@ -113,10 +113,24 @@
           [else
            (result (SCM_GLOC_GET g))])))
 
-(define-cproc %insert-binding (mod::<module> name::<symbol> value)
-  Scm_Define)
+(define-cproc %insert-binding (mod::<module> name::<symbol> value
+                               :optional (flags '()))
+  (let* ([z::int 0])
+    (unless (SCM_FALSEP (Scm_Memq 'const flags))
+      (logior= z SCM_BINDING_CONST))
+    (unless (SCM_FALSEP (Scm_Memq 'inlinable flags))
+      (logior= z SCM_BINDING_INLINABLE))
+    (set! SCM_RESULT (SCM_OBJ (Scm_MakeBinding mod name value z)))))
+
 (define-cproc %hide-binding (mod::<module> name::<symbol>) ::<void>
   Scm_HideBinding)
+
+(define-cproc %alias-binding (target::<module> tname::<symbol>
+                              origin::<module> oname::<symbol>) ::<boolean>
+  Scm_AliasBinding)
+
+(define-cproc %make-wrapper-module (origin::<module> prefix)
+  Scm__MakeWrapperModule)
 
 (define-cproc %export-symbols (mod::<module> names) Scm_ExportSymbols)
 
@@ -389,6 +403,9 @@
 (define-cproc vm-current-module () (result (SCM_OBJ (-> (Scm_VM) module))))
 (define-cproc vm-set-current-module (mod::<module>) ::<void>
   (set! (-> (Scm_VM) module) mod))
+
+;; for partial continuation
+(define-cproc %call/pc (proc) (result (Scm_VMCallPC proc)))
 
 (define-cproc gc-print-static-roots () ::<void> Scm_PrintStaticRoots)
 

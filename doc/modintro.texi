@@ -1,4 +1,3 @@
-@c -*- mode: texinfo; coding: utf-8; -*-
 @node Library modules - Overview, Library modules - Gauche extensions, Object system, Top
 @chapter Library modules - Overview
 @c NODE ライブラリモジュール - 概要
@@ -370,10 +369,10 @@ and elegant way.
 
 @c EN
 You can use regular expressions to search and extract
-character sequences from strings; see @ref{Regular expression}.
+character sequences from strings; see @ref{Regular expressions}.
 @c JP
 文字列から文字のならびを検索したり、とりだしたりするのに正規表現が使え
-ます。@ref{Regular expression}参照。
+ます。@ref{Regular expressions}参照。
 @c COMMON
 
 @c EN
@@ -818,3 +817,7 @@ WWWで主として使われるプロトコルやデータフォーマットの�
 @c COMMON
 @end table
 
+@c Local variables:
+@c mode: texinfo
+@c coding: utf-8
+@c end:

@@ -1,4 +1,3 @@
-@c -*- mode: texinfo; coding: utf-8; -*-
 @node Concepts, Programming in Gauche, Introduction, Top
 @chapter Concepts
 @c NODE 主要な概念
@@ -169,10 +168,10 @@ Syntax @code{receive} is built-in.  @xref{Binding constructs}.
 
 @c EN
 @item SRFI-9, Defining record types.
-Supported by the module @code{srfi-9}.  @xref{Record types}.
+Supported by the module @code{gauche.record}.  @xref{Record types}.
 @c JP
 @item SRFI-9, レコード型の定義
-モジュール@code{srfi-9}でサポートされます。@ref{Record types}参照。
+モジュール@code{gauche.record}でサポートされます。@ref{Record types}参照。
 @c COMMON
 
 @c EN
@@ -460,6 +459,22 @@ Supported natively.  @xref{Conditionals}.
 組込みです。@ref{Conditionals}参照。
 @c COMMON
 
+@c EN
+@item SRFI-98, An interface to access environment variables
+Supported by the module @code{srfi-98}.  @xref{Accessing environment variables}.
+@c JP
+@item SRFI-98, 環境変数にアクセスするためのインタフェース
+モジュール@code{srfi-98}でサポートされます。@ref{Accessing environment variables}参照。
+@c COMMON
+
+@c EN
+@item SRFI-99, ERR5RS Records
+Supported by the module @code{gauche.record}.  @xref{Record types}.
+@c JP
+@item SRFI-99, ERR5RS レコード
+モジュール@code{gauche.record}でサポートされます。@ref{Record types}参照。
+@c COMMON
+
 @end table
 
 @node Multibyte Strings, Multibyte scripts, Standard conformance, Concepts
@@ -528,12 +543,12 @@ Gaucheでは非常に効率が悪くなります。そのようなアルゴリ�
 
 @c EN
 String search primitives such as @code{string-scan} (@xref{String utilities})
-and regular expression matcher (@xref{Regular expression})
+and regular expression matcher (@xref{Regular expressions})
 can return a matched string directly, without
 using index access at all.
 @c JP
 @code{string-scan} (@ref{String utilities}参照) や正規表現
-(@ref{Regular expression}参照) など文字列を検索するプリミティブは、
+(@ref{Regular expressions}参照) など文字列を検索するプリミティブは、
 インデックスを介さずに一致した文字列を直接返すことができます。
 @c COMMON
 
@@ -1181,3 +1196,10 @@ a file on certain condition, use @code{load} or do dispatch in macro
 条件判断自体をマクロで行うようにしてください。
 @c COMMON
 @end table
+
+@c Local variables:
+@c mode: texinfo
+@c coding: utf-8
+@c end:
+
+
