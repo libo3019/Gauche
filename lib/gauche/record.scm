@@ -99,6 +99,10 @@
   (error "pseudo-rtd requires a class object <vector>, <list>, \
           or other pseudo-rtd, but got" other))
 
+;(define-compiler-macro pseudo-rtd
+;  (er-transformer
+;   (lambda (form rename compare)
+
 ;; We just collect ancestor's slots, ignoring duplicate slot names.
 ;; R6RS records require the same name slot merely shadows ancestors' one,
 ;; not changing the index of the fields.

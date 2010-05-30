@@ -39,6 +39,9 @@
   )
 (select-module gauche.internal)
 
+(require "./compdefs.scm")
+(import gauche.compile.defs)
+
 ;;; THE COMPILER
 ;;;
 ;;;   The main entry point is COMPILE, defined under "Entry point" section.
@@ -95,18 +98,6 @@
 (define-constant SCM_BINDING_CONST 2)
 (define-constant SCM_BINDING_INLINABLE 4)
 
-(define-macro (define-enum name . syms)
-  (let1 alist '()
-    `(eval-when (:compile-toplevel)
-       ,@(let loop ((syms syms) (i 0))
-           (if (null? syms)
-             '()
-             (begin
-               (push! alist (cons (car syms) i))
-               (cons `(define-constant ,(car syms) ,i)
-                     (loop (cdr syms) (+ i 1))))))
-       (define-constant ,name ',(reverse alist)))))
-
 ;; IForm tags
 (define-enum .intermediate-tags.
   $DEFINE
@@ -156,79 +147,6 @@
 ;; Maximum size of $LAMBDA node we allow to duplicate and inline.
 (define-constant SMALL_LAMBDA_SIZE 12)
 
-;;;============================================================
-;;; Utility macros
-;;;
-
-;; We use integers, instead of symbols, as tags, for it allows
-;; us to use jump table rather than 'case'.   
-;; This macro allows us to use symbolic constants instead of
-;; the actual integers.
-
-(define-macro (case/unquote obj . clauses)
-  (let1 tmp (gensym)
-    (define (expand-clause clause)
-      (match clause
-        [((item) . body)
-         `((eqv? ,tmp ,item) ,@body)]
-        [((item ...) . body)
-         (let1 ilist (list 'quasiquote
-                           (map (cut list 'unquote <>) item))
-           `((memv ,tmp ,ilist) ,@body))]
-        [('else . body)
-         `(else ,@body)]))
-    `(let ((,tmp ,obj))
-       (cond ,@(map expand-clause clauses)))))
-
-;; Inlining map.  Combined with closure optimization, we can avoid
-;; closure creation if we inline map call.
-;; We once tried inlining map calls automatically, and found the
-;; performance gain in general wasn't significant to justify the
-;; amount of increase of the code.
-;; However, it is worth to do in performance critical path.
-;; NB: proc is evaluated every iteration.  Intended it to be a lambda form,
-;; so that its call is inlined.
-
-(define-macro (imap proc lis)
-  (match proc
-    [('cut p '<> c)      `(%map1c ,p ,lis ,c)]
-    [('cut p '<> c1 c2)  `(%map1cc ,p ,lis ,c1 ,c2)]
-    ['make-lvar+         `(%map-make-lvar ,lis)]
-    [('lambda . _)
-     (let ([p (gensym)] [r (gensym)] [loop (gensym)])
-       `(let ,loop ((,r '()) (,p ,lis))
-          (if (null? ,p)
-            (reverse ,r)
-            (,loop (cons (,proc (car ,p)) ,r) (cdr ,p)))))]
-    [else `(map ,proc ,lis)]))
-
-(define-macro (imap2 proc lis1 lis2)
-  (let ([p1 (gensym)] [p2 (gensym)] [r (gensym)] [loop (gensym)])
-    `(let ,loop ((,r '()) (,p1 ,lis1) (,p2 ,lis2))
-       (if (null? ,p1)
-         (reverse ,r)
-         (,loop (cons (,proc (car ,p1) (car ,p2)) ,r) (cdr ,p1) (cdr ,p2))))))
-
-(define-macro (ifor-each proc lis)
-  (let ([p (gensym)] [loop (gensym)])
-    `(let ,loop ((,p ,lis))
-       (unless (null? ,p) (,proc (car ,p)) (,loop (cdr ,p))))))
-
-(define-macro (ifor-each2 proc lis1 lis2)
-  (let ([p1 (gensym)] [p2 (gensym)] [loop (gensym)])
-    `(let ,loop ((,p1 ,lis1) (,p2 ,lis2))
-       (unless (null? ,p1)
-         (,proc (car ,p1) (car ,p2))
-         (,loop (cdr ,p1) (cdr ,p2))))))
-
-;; Inlining max
-;; We only compare unsigned integers (in Pass 3), so we use the specialized
-;; version of max.
-(define-macro (imax x y . more)
-  (if (null? more)
-    `(%imax ,x ,y)
-    `(%imax ,x (imax ,y ,@more))))
-
 ;; Generate dispatch table
 (define-macro (generate-dispatch-table prefix)
   `(vector ,@(map (lambda (p) (string->symbol #`",|prefix|/,(car p)"))
@@ -237,85 +155,6 @@
 ;;============================================================
 ;; Data structures
 ;;
-
-;; NB: for the time being, we use a simple vector and manually
-;; defined accessors/modifiers.  Partly because we can't use
-;; define-class stuff here until we can compile gauche/object.scm
-;; into C, and partly because using inlined vector-{ref|set!} is
-;; pretty fast compared to the generic class access.  Probably we
-;; should provide a common way to define a simple structure which
-;; allows the compiler to inline accessors for performance, trading
-;; off the runtime flexibility.
-
-;; Macro define-simple-struct creates a bunch of functions and macros
-;; to emulate a structure by a vector.
-;; NAME is a symbol to name the structure type.  TAG is some value
-;; (usually a symbol or an integer) to indicate the type of the
-;; structure.
-;;
-;; (define-simple-struct <name> <tag> <constructor> [(<slot-spec>*)])
-;;
-;; <constructor> : <symbol> | #f
-;; <slot-spec>   : <slot-name> | (<slot-name> [<init-value>])
-;;
-;; For each <slot-spec>, the following accessor/modifier are automatially
-;; generated.  
-;;
-;;   NAME-SLOT      - accessor (macro)
-;;   NAME-SLOT-set! - modifier (macro)
-;;
-;; If a symbol is given as <constructor>, it becomes a macro to construct
-;; the structure.  It can take zero to as many arguments as the # of slots.
-;; The arguments to the constructor initializes the slots in the order of
-;; their appearance in define-simple-struct.  If not enough arguments are
-;; given to the constructor, the rest of slots are initialized by each
-;; <init-value> (or #f if <init-value> is omitted).
-
-(define-macro (define-simple-struct name tag constructor :optional (slot-defs '()))
-  (define (take l n) ; we can't use srfi-1 take, so here it is.
-    (if (zero? n) '() (cons (car l) (take (cdr l) (- n 1)))))
-  (define (make-constructor)
-    (let ([args (gensym)]
-          [num-slots  (length slot-defs)]
-          [slot-names (map (lambda (s) (if (symbol? s) s (car s))) slot-defs)]
-          [init-vals  (map (lambda (s) (if (symbol? s) #f (cadr s))) slot-defs)])
-      `(define-macro (,constructor . ,args)
-         (match ,args
-           ,@(let loop ((n 0)
-                        (r '()))
-               (if (> n num-slots)
-                 r
-                 (let1 carg (take slot-names n)
-                   (loop (+ n 1)
-                         (cons
-                          `(,carg
-                            (list 'vector
-                                  ,@(if tag `(',tag) '())
-                                  ,@carg
-                                  ,@(map (cut list 'quote <>)
-                                         (list-tail init-vals n))))
-                          r)))
-                 ))))
-      ))
-  `(begin
-     ,@(if constructor
-         `(,(make-constructor))
-         '())
-     ,@(let loop ((s slot-defs) (i (if tag 1 0)) (r '()))
-         (if (null? s)
-           (reverse r)
-           (let* ([slot-name (if (pair? (car s)) (caar s) (car s))]
-                  [acc (string->symbol #`",|name|-,|slot-name|")]
-                  [mod (string->symbol #`",|name|-,|slot-name|-set!")])
-             (loop (cdr s)
-                   (+ i 1)
-                   (list*
-                    `(define-macro (,acc obj)
-                       `(vector-ref ,obj ,,i))
-                    `(define-macro (,mod obj val)
-                       `(vector-set! ,obj ,,i ,val))
-                    r))))))
-  )
 
 (define-inline (variable? arg) (or (symbol? arg) (identifier? arg)))
 
@@ -2096,6 +1935,14 @@
                                    (cenv-module cenv)
                                    (cenv-frames cenv)))]
     [_ (error "syntax-error: malformed syntax-rules:" form)]))
+
+(define-pass1-syntax (er-transformer form cenv) :gauche
+  (match form
+    [(_ expr)
+     (let1 transformer ((make-toplevel-closure (compile expr cenv)))
+       ($const (lambda (form cenv)
+                 (transformer form (lambda (s) s) (lambda (a b) (eq? a b))))))]
+    [_ (error "syntax-error: malformed er-transformer:" form)]))
 
 ;; If family ........................................
 
@@ -5167,11 +5014,16 @@
 ;; but for the time being, we mimic explicitly renaming macro.
 
 (define (%bind-inline-er-transformer module name xformer)
-  (%attach-inline-er-transformer (global-variable-ref module name) xformer)
+  (%attach-inline-er-transformer-bis (global-variable-ref module name)
+                                     xformer module)
   (%mark-binding-inlinable! module name)
   name)
 
-(define (%attach-inline-er-transformer proc xformer)
+;; temporary adaptor procedure
+(define (%attach-inline-er-transformer-bis proc xformer module)
+  (%attach-inline-er-transformer proc xformer (make-bottom-cenv module)))
+
+(define (%attach-inline-er-transformer proc xformer def-env)
   ;; If PROC is defined by define-inline (thus have a packed IForm in
   ;; %procedure-inliner), we keep it and applies expand-inline-procedure
   ;; after the compiler macro finishes its job.
@@ -5180,24 +5032,26 @@
       (warn "Attaching a compiler macro to ~a clobbers previously attached \
              inline transformers." proc))
     (set! (%procedure-inliner proc)
-          (lambda (form cenv)
-            (let1 r
-                ;; Call the transformer with rename and compare procedure,
-                ;; just like explicit renaming macro.  However, THE CURRENT
-                ;; CODE DOES NOT IMPLEMENT PROPER SEMANTICS.  They're just
-                ;; placeholders for experiment.
-                (xformer form
-                         (cut ensure-identifier <> cenv)
-                         (lambda (a b) ; this is just a placeholder!
-                           (eq? (identifier->symbol a) (identifier->symbol b))))
+          (lambda (form use-env)
+            (let1 r (%call-inline-er-transformer xformer form def-env use-env)
               (cond [(eq? form r) ; no inline operation is triggered.
                      (if (vector? orig-inliner)
                        (expand-inlined-procedure form
                                                  (unpack-iform orig-inliner)
-                                                 (imap (cut pass1 <> cenv)
+                                                 (imap (cut pass1 <> use-env)
                                                        (cdr form)))
                        (undefined))]
-                    [else (pass1 r cenv)]))))))
+                    [else (pass1 r use-env)]))))))
+
+;; Call the transformer with rename and compare procedure.
+;; NB: The compare procedure currently does not consider locally bounded
+;; identifiers!
+(define (%call-inline-er-transformer xformer form def-env use-env)
+  (xformer form
+           (cut ensure-identifier <> def-env) ;rename
+           (lambda (a b)                      ;compare
+             (bound-id=? (ensure-identifier a use-env)
+                         (ensure-identifier b use-env)))))
 
 ;;============================================================
 ;; Utilities

@@ -209,8 +209,11 @@ builtin-syms.c gauche/builtin-syms.h : builtin-syms.scm
 vminsn.c gauche/vminsn.h ../lib/gauche/vm/insn.scm : vminsn.scm geninsn
 	$(BUILD_GOSH) ./geninsn
 
-compile.c : compile.scm precomp vminsn.scm ../lib/gauche/vm/insn.scm
+compile.c : compile.scm compdefs.scm precomp vminsn.scm ../lib/gauche/vm/insn.scm
 	$(BUILD_GOSH) $(PRECOMP) compile.scm
+
+compmac.c : compmac.scm compdefs.scm precomp
+	$(BUILD_GOSH) $(PRECOMP) compmac.scm
 
 scmlib.c : scmlib.scm precomp vminsn.scm ../lib/gauche/vm/insn.scm
 	$(BUILD_GOSH) $(PRECOMP) --keep-private-macro=inline-stub,declare scmlib.scm

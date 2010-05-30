@@ -209,14 +209,17 @@
 
 (define (%build-case-lambda v min-req max-req)
   (rlet1 p ((with-module gauche.internal make-case-lambda-dispatcher) v min-req)
-    ((with-module gauche.internal %attach-inline-er-transformer)
+    ((with-module gauche.internal %attach-inline-er-transformer-bis)
      p
      (lambda (form r c)
        (let1 nargs (- (length form) 1)
          (if (and (<= min-req nargs max-req)
                   (vector-ref v (- nargs min-req)))
            (cons (vector-ref v (- nargs min-req)) (cdr form))
-           form))))))
+           form)))
+     (current-module) ; TODO: this is dummy.  has to be taken care of
+                      ; by er-transformer macro!
+     )))
 
 ;; ~, ref*  ----------------------------------------------------
 ;;  (~ a b c d) => (ref (ref (ref a b) c) d)
