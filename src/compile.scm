@@ -1938,10 +1938,10 @@
   (match form
     [(_ expr)
      (let1 ert ((make-toplevel-closure (compile expr cenv)))
-       (make-macro-transformer
-        (cenv-exp-name cenv)
-        (lambda (form cenv)
-          (ert form (lambda (s) s) (lambda (a b) (eq? a b))))))]
+       ($const (make-macro-transformer
+                (cenv-exp-name cenv)
+                (lambda (form cenv)
+                  (ert form (lambda (s) s) (lambda (a b) (eq? a b)))))))]
     [_ (error "syntax-error: malformed er-transformer:" form)]))
 
 ;; If family ........................................
