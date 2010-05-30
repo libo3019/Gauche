@@ -240,7 +240,10 @@
 (define-cproc make-toplevel-closure (code::<compiled-code>)
   (result (Scm_MakeClosure (SCM_OBJ code) NULL)))
 
-(define-cproc make-macro-transformer (name::<symbol> proc::<procedure>)
+(define-cproc make-macro-transformer (name proc)
+  Scm_MakeMacroTransformer)
+
+(define-cproc make-legacy-macro-transformer (name proc::<procedure>)
   Scm_MakeMacroTransformerOld)
 
 (define-cproc compile-syntax-rules (name literals rules mod env)

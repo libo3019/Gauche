@@ -1100,7 +1100,8 @@ void Scm_DefineAutoload(ScmModule *where,
             ScmSymbol *sym = SCM_SYMBOL(SCM_CADR(entry));
             ScmObj autoload = Scm_MakeAutoload(where, sym, path, import_from);
             Scm_Define(where, sym,
-                       Scm_MakeMacroAutoload(sym, SCM_AUTOLOAD(autoload)));
+                       Scm_MakeMacroAutoload(SCM_OBJ(sym),
+                                             SCM_AUTOLOAD(autoload)));
         } else {
             Scm_Error("autoload: bad autoload symbol entry: %S", entry);
         }

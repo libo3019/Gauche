@@ -1857,16 +1857,14 @@
   (check-toplevel oform cenv)
   (match form
     [(_ (name . formals) body ...)
-     (let1 trans
-         (make-macro-transformer name
-                                 (compile-toplevel-lambda form name formals
-                                                          body module))
+     (let1 trans (make-legacy-macro-transformer
+                  name (compile-toplevel-lambda form name formals body module))
        (%insert-binding module name trans)
        ($const-undef))]
     [(_ name expr)
      (unless (variable? name) (error "syntax-error:" oform))
      ;; TODO: macro autoload
-     (let1 trans (make-macro-transformer name (eval expr module))
+     (let1 trans (make-legacy-macro-transformer name (eval expr module))
        (%insert-binding module name trans)
        ($const-undef))]
     [_ (error "syntax-error:" oform)]))
@@ -1939,9 +1937,11 @@
 (define-pass1-syntax (er-transformer form cenv) :gauche
   (match form
     [(_ expr)
-     (let1 transformer ((make-toplevel-closure (compile expr cenv)))
-       ($const (lambda (form cenv)
-                 (transformer form (lambda (s) s) (lambda (a b) (eq? a b))))))]
+     (let1 ert ((make-toplevel-closure (compile expr cenv)))
+       (make-macro-transformer
+        (cenv-exp-name cenv)
+        (lambda (form cenv)
+          (ert form (lambda (s) s) (lambda (a b) (eq? a b))))))]
     [_ (error "syntax-error: malformed er-transformer:" form)]))
 
 ;; If family ........................................

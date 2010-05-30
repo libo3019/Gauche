@@ -580,9 +580,9 @@ SCM_EXTERN ScmObj Scm_VMWithGuardHandler(ScmObj handler, ScmObj thunk);
 SCM_EXTERN ScmObj Scm_VMWithExceptionHandler(ScmObj handler, ScmObj thunk);
 
 /* Miscellaneous stuff */
-SCM_EXTERN ScmObj Scm_MakeMacroTransformer(ScmSymbol *name,
+SCM_EXTERN ScmObj Scm_MakeMacroTransformer(ScmObj name,
 					   ScmObj proc);
-SCM_EXTERN ScmObj Scm_MakeMacroAutoload(ScmSymbol *name,
+SCM_EXTERN ScmObj Scm_MakeMacroAutoload(ScmObj name,
                                         ScmAutoload *al);
 
 SCM_EXTERN ScmObj Scm_UnwrapSyntax(ScmObj form);
@@ -1507,7 +1507,7 @@ SCM_EXTERN ScmObj Scm_MakeSyntax(ScmSymbol *name, ScmObj handler);
 /* Macro */
 struct ScmMacroRec {
     SCM_HEADER;
-    ScmSymbol *name;            /* for debug */
+    ScmObj name;                    /* for debug */
     ScmTransformerProc transformer; /* (Self, Sexpr, Env) -> Sexpr */
     void *data;
 };
@@ -1518,7 +1518,7 @@ struct ScmMacroRec {
 SCM_CLASS_DECL(Scm_MacroClass);
 #define SCM_CLASS_MACRO            (&Scm_MacroClass)
 
-SCM_EXTERN ScmObj Scm_MakeMacro(ScmSymbol *name,
+SCM_EXTERN ScmObj Scm_MakeMacro(ScmObj name,
                                 ScmTransformerProc transformer,
                                 void *data);
 

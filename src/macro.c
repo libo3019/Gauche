@@ -76,7 +76,7 @@ static void macro_print(ScmObj obj, ScmPort *port, ScmWriteContext *mode)
 
 SCM_DEFINE_BUILTIN_CLASS_SIMPLE(Scm_MacroClass, macro_print);
 
-ScmObj Scm_MakeMacro(ScmSymbol *name, ScmTransformerProc transformer,
+ScmObj Scm_MakeMacro(ScmObj name, ScmTransformerProc transformer,
                      void *data)
 {
     ScmMacro *s = SCM_NEW(ScmMacro);
@@ -168,7 +168,7 @@ static ScmObj macro_transform(ScmObj self, ScmObj form, ScmObj cenv,
     return Scm_ApplyRec2(proc, form, cenv);
 }
 
-ScmObj Scm_MakeMacroTransformer(ScmSymbol *name, ScmObj proc)
+ScmObj Scm_MakeMacroTransformer(ScmObj name, ScmObj proc)
 {
     return Scm_MakeMacro(name, macro_transform, (void*)proc);
 }
@@ -189,7 +189,7 @@ static ScmObj macro_transform_old(ScmObj self, ScmObj form,
     return Scm_VMApply(proc, SCM_CDR(form));
 }
 
-ScmObj Scm_MakeMacroTransformerOld(ScmSymbol *name, ScmProcedure *proc)
+ScmObj Scm_MakeMacroTransformerOld(ScmObj name, ScmProcedure *proc)
 {
     return Scm_MakeMacro(name, macro_transform_old, (void*)proc);
 }
@@ -212,7 +212,7 @@ static ScmObj macro_autoload(ScmObj self, ScmObj form, ScmObj cenv, void *data)
     return mac->transformer(SCM_OBJ(mac), form, cenv, mac->data);
 }
 
-ScmObj Scm_MakeMacroAutoload(ScmSymbol *name, ScmAutoload *adata)
+ScmObj Scm_MakeMacroAutoload(ScmObj name, ScmAutoload *adata)
 {
     return Scm_MakeMacro(name, macro_autoload, (void*)adata);
 }
@@ -898,7 +898,7 @@ ScmObj Scm_CompileSyntaxRules(ScmObj name, ScmObj literals, ScmObj rules,
     if (SCM_IDENTIFIERP(name)) name = SCM_OBJ(SCM_IDENTIFIER(name)->name);
     if (!SCM_MODULEP(mod)) Scm_Error("module required, but got %S", mod);
     sr = compile_rules(name, literals, rules, SCM_MODULE(mod), env);
-    return Scm_MakeMacro(SCM_SYMBOL(name), synrule_transform, (void*)sr);
+    return Scm_MakeMacro(name, synrule_transform, (void*)sr);
 }
 
 /*===================================================================

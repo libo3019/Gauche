@@ -94,8 +94,7 @@ SCM_EXTERN ScmObj Scm_CompileSyntaxRules(ScmObj name, ScmObj lietrals,
     SCM_OBJ((SCM_WORD(level)<<24) | (SCM_WORD(count)<<16) | SCM_PVREF_TAG)
 
 /* Temporary */
-SCM_EXTERN ScmObj Scm_MakeMacroTransformerOld(ScmSymbol *name,
-                                              ScmProcedure *proc);
+SCM_EXTERN ScmObj Scm_MakeMacroTransformerOld(ScmObj name, ScmProcedure *proc);
 
 SCM_DECL_END
 

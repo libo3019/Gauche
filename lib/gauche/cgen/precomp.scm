@@ -560,7 +560,7 @@
               [var  (cgen-literal name)])
          (cgen-init
           (format "  Scm_Define(mod, SCM_SYMBOL(~a), \
-                             Scm_MakeMacroTransformerOld(SCM_SYMBOL(~a),\
+                             Scm_MakeMacroTransformerOld(~a,\
                                  SCM_PROCEDURE(Scm_MakeClosure(~a, NULL)))); /* ~s */"
                   (cgen-cexpr var) (cgen-cexpr var)
                   (cgen-cexpr code) name))))]

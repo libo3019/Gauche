@@ -54,7 +54,7 @@
            #`"  al = Scm_MakeAutoload(SCM_CURRENT_MODULE(), sym, SCM_STRING(path), import_from);")
           (if (cdr ent) ;; macro?
             (cgen-init
-             #`"  Scm_Define(,|where|,, sym,, Scm_MakeMacroAutoload(sym,, SCM_AUTOLOAD(al)));")
+             #`"  Scm_Define(,|where|,, sym,, Scm_MakeMacroAutoload(SCM_OBJ(sym),, SCM_AUTOLOAD(al)));")
             (cgen-init
              #`"  Scm_Define(,|where|,, sym,, al);"))))
       ))
