@@ -263,7 +263,7 @@
   (SCM_ASSERT (SCM_SYNTAXP syn))
   (result (-> (SCM_SYNTAX syn) handler)))
 
-(define-cproc %internal-macro-expand (form env once::<boolean>)
+(define-cproc %internal-macro-expand (form cenv once::<boolean>)
   Scm_VMMacroExpand)
 
 (define-cproc %procedure-inliner (proc::<procedure>)

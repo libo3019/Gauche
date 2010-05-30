@@ -157,28 +157,8 @@ ScmSyntaxRules *make_syntax_rules(int nr)
  *
  *   (define-syntax foo <transformer>)
  *
- * Where <transformer> is a procedure that takes one argument, a syntactic
- * closure.  It must return a syntactic closure as the result of trans
- * formation.
- *
- * From the point of the compiler, define-syntax triggers the following
- * actions.
- *
- *  - evaluate <transformer> in the compiler environment.
- *  - encapsulate it into <macro> object, and insert it to the compiler
- *    environment.
- *  - insert the binding to foo in the runtime toplevel environment.
- *
- * Define-macro is also built on top of define-syntax.  Concepturally,
- * it is transformed as follows.
- *
- *  (define-macro foo procedure)
- *   => (define-syntax foo
- *        (lambda (x)
- *          (let ((env  (slot-ref x 'env))
- *                (form (slot-ref x 'expr)))
- *            (make-syntactic-closure
- *              env () (apply procedure form)))))
+ * Where <transformer> is an expression that evaluates to an opaque
+ * #<macro> object.
  */
 
 static ScmObj macro_transform(ScmObj self, ScmObj form, ScmObj env,
@@ -924,14 +904,18 @@ ScmObj Scm_CompileSyntaxRules(ScmObj name, ScmObj literals, ScmObj rules,
 
 ScmObj macro_expand_cc(ScmObj result, void **data)
 {
-    ScmObj env = SCM_OBJ(data[0]);
-    return Scm_VMMacroExpand(result, env, FALSE);
+    ScmObj cenv = SCM_OBJ(data[0]);
+    return Scm_VMMacroExpand(result, cenv, FALSE);
 }
 
-ScmObj Scm_VMMacroExpand(ScmObj expr, ScmObj env, int oncep)
+ScmObj Scm_VMMacroExpand(ScmObj expr, ScmObj cenv, int oncep)
 {
     ScmObj sym, op;
     ScmMacro *mac;
+
+    if (!SCM_VECTORP(cenv)) {
+        Scm_Error("internal-macro-expand: %S", cenv);
+    }
 
     if (!SCM_PAIRP(expr)) return expr;
     op = SCM_CAR(expr);
@@ -963,17 +947,23 @@ ScmObj Scm_VMMacroExpand(ScmObj expr, ScmObj env, int oncep)
     if (mac) {
         if (!oncep) {
             void *data[1];
-            data[0] = env;
+            data[0] = cenv;
             Scm_VMPushCC(macro_expand_cc, data, 1);
         }
-        expr = Scm_CallMacroExpander(mac, expr, env);
+        expr = Scm_CallMacroExpander(mac, expr, cenv);
     }
     return expr;
 }
 
-ScmObj Scm_CallMacroExpander(ScmMacro *mac, ScmObj expr, ScmObj env)
+ScmObj Scm_CallMacroExpander(ScmMacro *mac, ScmObj expr, ScmObj cenv)
 {
-    return mac->transformer(SCM_OBJ(mac), expr, env, mac->data);
+    ScmObj frames;
+    if (!SCM_VECTORP(cenv)) {
+        Scm_Error("call-macro-expander: %S", cenv);
+    }
+    SCM_ASSERT(SCM_VECTORP(cenv));
+    frames = SCM_VECTOR_ELEMENT(cenv, 1);
+    return mac->transformer(SCM_OBJ(mac), expr, frames, mac->data);
 }
 
 /*===================================================================

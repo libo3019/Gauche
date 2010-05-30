@@ -1442,7 +1442,7 @@
       (if gval
         (case type
           [(macro)
-           (pass1 (call-macro-expander gval program (cenv-frames cenv)) cenv)]
+           (pass1 (call-macro-expander gval program cenv) cenv)]
           [(syntax)
            (call-syntax-handler gval program cenv)]
           [(inline)
@@ -1490,7 +1490,7 @@
               [(identifier? h) (pass1/global-call h)]
               [(lvar? h) (pass1/call program ($lref h) (cdr program) cenv)]
               [(macro? h) ;; local macro
-               (pass1 (call-macro-expander h program (cenv-frames cenv)) cenv)]
+               (pass1 (call-macro-expander h program cenv) cenv)]
               [(syntax? h);; locally rebound syntax
                (call-syntax-handler h program cenv)]
               [else (error "[internal] unknown resolution of head:" h)]))]
@@ -1587,7 +1587,7 @@
 
 (define (pass1/body-macro-expand-rec mac exprs intdefs cenv)
   (pass1/body-rec
-   (acons (call-macro-expander mac (caar exprs) (cenv-frames cenv))
+   (acons (call-macro-expander mac (caar exprs) cenv)
           (cdar exprs) ;src
           (cdr exprs)) ;rest
    intdefs cenv))
@@ -1895,12 +1895,12 @@
 
 (define-pass1-syntax (%macroexpand form cenv) :gauche
   (match form
-    [(_ expr) ($const (%internal-macro-expand expr (cenv-frames cenv) #f))]
+    [(_ expr) ($const (%internal-macro-expand expr cenv #f))]
     [_ (error "syntax-error: malformed %macroexpand:" form)]))
 
 (define-pass1-syntax (%macroexpand-1 form cenv) :gauche
   (match form
-    [(_ expr) ($const (%internal-macro-expand expr (cenv-frames cenv) #t))]
+    [(_ expr) ($const (%internal-macro-expand expr cenv #t))]
     [_ (error "syntax-error: malformed %macroexpand-1:" form)]))
 
 (define-pass1-syntax (let-syntax form cenv) :null

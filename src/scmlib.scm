@@ -38,6 +38,18 @@
 (select-module gauche)
 
 ;;;=======================================================
+;;; Macros
+;;;
+
+(define (macroexpand form)
+  (eval `(%macroexpand ,form)
+        ((with-module gauche.internal vm-current-module))))
+
+(define (macroexpand-1 form)
+  (eval `(%macroexpand-1 ,form)
+        ((with-module gauche.internal vm-current-module))))
+
+;;;=======================================================
 ;;; Extending procedures
 ;;;
 

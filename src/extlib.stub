@@ -40,15 +40,6 @@
            <gauche/bignum.h>))
 
 ;;
-;; Macros
-;;
-
-(define-cproc macroexpand (form)
-  (result (Scm_VMMacroExpand form SCM_NIL FALSE)))
-(define-cproc macroexpand-1 (form)
-  (result (Scm_VMMacroExpand form SCM_NIL TRUE)))
-
-;;
 ;; 6.1  Equivalence predicates
 ;;
 
