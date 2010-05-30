@@ -161,12 +161,11 @@ ScmSyntaxRules *make_syntax_rules(int nr)
  * #<macro> object.
  */
 
-static ScmObj macro_transform(ScmObj self, ScmObj form, ScmObj env,
+static ScmObj macro_transform(ScmObj self, ScmObj form, ScmObj cenv,
                               void *data)
 {
     ScmObj proc = SCM_OBJ(data);
-    SCM_ASSERT(SCM_SYNTACTIC_CLOSURE_P(form));
-    return Scm_ApplyRec(proc, SCM_LIST1(form));
+    return Scm_ApplyRec2(proc, form, cenv);
 }
 
 ScmObj Scm_MakeMacroTransformer(ScmSymbol *name, ScmObj proc)
@@ -183,7 +182,7 @@ ScmObj Scm_MakeMacroTransformer(ScmSymbol *name, ScmObj proc)
    bad number of arguments) */
 
 static ScmObj macro_transform_old(ScmObj self, ScmObj form,
-                                  ScmObj env, void *data)
+                                  ScmObj cenv, void *data)
 {
     ScmObj proc = SCM_OBJ(data);
     SCM_ASSERT(SCM_PAIRP(form));
@@ -207,10 +206,10 @@ static ScmMacro *resolve_macro_autoload(ScmAutoload *adata)
     return SCM_MACRO(mac);
 }
 
-static ScmObj macro_autoload(ScmObj self, ScmObj form, ScmObj env, void *data)
+static ScmObj macro_autoload(ScmObj self, ScmObj form, ScmObj cenv, void *data)
 {
     ScmMacro *mac = resolve_macro_autoload(SCM_AUTOLOAD(data));
-    return mac->transformer(SCM_OBJ(mac), form, env, mac->data);
+    return mac->transformer(SCM_OBJ(mac), form, cenv, mac->data);
 }
 
 ScmObj Scm_MakeMacroAutoload(ScmSymbol *name, ScmAutoload *adata)
@@ -849,11 +848,15 @@ static ScmObj realize_template(ScmSyntaxRuleBranch *branch,
     return realize_template_rec(branch->template, mvec, 0, indices, &idlist, &exlev);
 }
 
-static ScmObj synrule_expand(ScmObj form, ScmObj env, ScmSyntaxRules *sr)
+static ScmObj synrule_expand(ScmObj form, ScmObj cenv, ScmSyntaxRules *sr)
 {
     MatchVar *mvec = alloc_matchvec(sr->maxNumPvars);
-    ScmObj expanded;
+    ScmObj env, expanded;
     int i;
+
+    /* TODO: Use proper cenv accessor */
+    SCM_ASSERT(SCM_VECTORP(cenv));
+    env = SCM_VECTOR_ELEMENT(cenv, 1); /* cenv-frames */
 
 #ifdef DEBUG_SYNRULE    
     Scm_Printf(SCM_CUROUT, "**** synrule_transform: %S\n", form);
@@ -879,11 +882,11 @@ static ScmObj synrule_expand(ScmObj form, ScmObj env, ScmSyntaxRules *sr)
     return SCM_NIL;
 }
 
-static ScmObj synrule_transform(ScmObj self, ScmObj form, ScmObj env,
+static ScmObj synrule_transform(ScmObj self, ScmObj form, ScmObj cenv,
                                 void *data)
 {
     ScmSyntaxRules *sr = (ScmSyntaxRules *)data;
-    return synrule_expand(form, env, sr);
+    return synrule_expand(form, cenv, sr);
 }
 
 /* NB: a stub for the new compiler (TEMPORARY) */
@@ -913,9 +916,7 @@ ScmObj Scm_VMMacroExpand(ScmObj expr, ScmObj cenv, int oncep)
     ScmObj sym, op;
     ScmMacro *mac;
 
-    if (!SCM_VECTORP(cenv)) {
-        Scm_Error("internal-macro-expand: %S", cenv);
-    }
+    SCM_ASSERT(SCM_VECTORP(cenv));
 
     if (!SCM_PAIRP(expr)) return expr;
     op = SCM_CAR(expr);
@@ -957,13 +958,8 @@ ScmObj Scm_VMMacroExpand(ScmObj expr, ScmObj cenv, int oncep)
 
 ScmObj Scm_CallMacroExpander(ScmMacro *mac, ScmObj expr, ScmObj cenv)
 {
-    ScmObj frames;
-    if (!SCM_VECTORP(cenv)) {
-        Scm_Error("call-macro-expander: %S", cenv);
-    }
     SCM_ASSERT(SCM_VECTORP(cenv));
-    frames = SCM_VECTOR_ELEMENT(cenv, 1);
-    return mac->transformer(SCM_OBJ(mac), expr, frames, mac->data);
+    return mac->transformer(SCM_OBJ(mac), expr, cenv, mac->data);
 }
 
 /*===================================================================
