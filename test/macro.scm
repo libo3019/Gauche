@@ -704,7 +704,38 @@
       (lambda () ((mdm-bar-m3 z (+ z 1)) 4)))
 
 ;;----------------------------------------------------------------------
+;; explicit-renaming transformer
+
+(test-section "explicit renaming macros")
+
+(define-syntax er-or
+  (er-transformer
+   (lambda (f r c)
+     (cond [(null? (cdr f)) #f]
+           [(null? (cddr f)) (cadr f)]
+           [else `(,(r'let) ((,(r'tmp) ,(cadr f)))
+                   ,(r'if) ,(r'tmp) ,(r'tmp) (,(car f) ,(cddr f)))]))))
+
+(test "er-or base0" #f (lambda () (er-or)))
+(test "er-or base1" #f (lambda () (er-or (eq? 'a 'b))))
+(test "er-or base1" #t (lambda () (er-or (eq? 'a 'a))))
+(test "er-or shortcut" #t (lambda () (er-or (eq? 'a 'a) (error "boo"))))
+(test "er-or" 'foo (lambda () (er-or 'foo 'bar)))
+(test "er-or" 'bar (lambda () (er-or (eq? 'a 'b) 'bar)))
+
+(test "er-or hygienity (outer)" 'foo
+      (lambda ()
+        (let ((let list) (if list))
+          (er-or (eq? 'a 'b) 'foo))))
+(test "er-or hygienity (inner)" 'a
+      (lambda ()
+        (let ((tmp (lambda () 'a)))
+          (er-or (eq? 'a 'b) (tmp)))))
+
+;;----------------------------------------------------------------------
 ;; identifier comparison
+
+(test-section "identifier comparison")
 
 ;; This is EXPERIMENTAL: may be changed in later release.
 

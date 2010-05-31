@@ -1941,8 +1941,22 @@
        ($const (make-macro-transformer
                 (cenv-exp-name cenv)
                 (lambda (form cenv)
-                  (ert form (lambda (s) s) (lambda (a b) (eq? a b)))))))]
+                  (ert form
+                       (lambda (s) (er-rename s cenv))
+                       (lambda (a b) (eq? a b)))))))]
     [_ (error "syntax-error: malformed er-transformer:" form)]))
+
+;; 'rename' procedure - we just return a resolved identifier
+(define (er-rename symid cenv)
+  (unless (variable? symid)
+    (error "er-transformer: rename procedure requires a symbol or \
+            an identifier, but got" symid))
+  (let1 var (cenv-lookup cenv symid SYNTAX)
+    (if (identifier? var)
+      var
+      (make-identifier (if (symbol? symid) symid (slot-ref identifier 'name))
+                       (cenv-module cenv)
+                       (cenv-frames cenv)))))
 
 ;; If family ........................................
 
