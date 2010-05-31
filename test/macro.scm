@@ -714,7 +714,7 @@
      (cond [(null? (cdr f)) #f]
            [(null? (cddr f)) (cadr f)]
            [else `(,(r'let) ((,(r'tmp) ,(cadr f)))
-                   ,(r'if) ,(r'tmp) ,(r'tmp) (,(car f) ,(cddr f)))]))))
+                   (,(r'if) ,(r'tmp) ,(r'tmp) (,(car f) ,@(cddr f))))]))))
 
 (test "er-or base0" #f (lambda () (er-or)))
 (test "er-or base1" #f (lambda () (er-or (eq? 'a 'b))))

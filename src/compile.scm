@@ -1441,13 +1441,9 @@
     (receive (gval type) (global-call-type id cenv)
       (if gval
         (case type
-          [(macro)
-           (pass1 (call-macro-expander gval program cenv) cenv)]
-          [(syntax)
-           (call-syntax-handler gval program cenv)]
-          [(inline)
-           (pass1/expand-inliner id gval)]
-          )
+          [(macro)  (pass1 (call-macro-expander gval program cenv) cenv)]
+          [(syntax) (call-syntax-handler gval program cenv)]
+          [(inline) (pass1/expand-inliner id gval)])
         (pass1/call program ($gref id) (cdr program) cenv))))
 
   ;; Expand inlinable procedure.  Inliner may be...
@@ -1941,22 +1937,27 @@
        ($const (make-macro-transformer
                 (cenv-exp-name cenv)
                 (lambda (form cenv)
-                  (ert form
-                       (lambda (s) (er-rename s cenv))
-                       (lambda (a b) (eq? a b)))))))]
+                  (let1 dict (make-hash-table 'eq?)
+                    (ert form
+                         (lambda (s) (er-rename s cenv dict))
+                         (lambda (a b) (eq? a b))))))))]
     [_ (error "syntax-error: malformed er-transformer:" form)]))
 
 ;; 'rename' procedure - we just return a resolved identifier
-(define (er-rename symid cenv)
+(define (er-rename symid cenv dict)
   (unless (variable? symid)
     (error "er-transformer: rename procedure requires a symbol or \
             an identifier, but got" symid))
-  (let1 var (cenv-lookup cenv symid SYNTAX)
-    (if (identifier? var)
-      var
-      (make-identifier (if (symbol? symid) symid (slot-ref identifier 'name))
-                       (cenv-module cenv)
-                       (cenv-frames cenv)))))
+  (if (symbol? symid)
+    (or (hash-table-get dict symid #f)
+        (let1 var (cenv-lookup cenv symid SYNTAX)
+          (rlet1 id (if (identifier? var)
+                      var
+                      (make-identifier symid
+                                       (cenv-module cenv)
+                                       (cenv-frames cenv)))
+            (hash-table-put! dict symid id))))
+    symid))
 
 ;; If family ........................................
 

@@ -152,8 +152,7 @@ SCM_EXTERN ScmObj Scm_MakeSyntacticClosure(ScmObj env,
  *   also used as a placeholder in a global variable reference/assignment
  *   (see compile.c).
  *
- *   NB: Identifier's API and usage will likely be changed in future.
- *   It shouldn't be used directly from applications.
+ *   Two identifiers are the same if they resolve to the same binding.
  */
 
 typedef struct ScmIdentifierRec {
