@@ -208,6 +208,12 @@
    (ref-count 0)
    (set-count 0)))
 
+(define-syntax %lvar-initval-set! lvar-initval-set!)
+(define (lvar-initval-set! lv x)
+  (when (eq? (lvar-name lv) 'if)
+    (display "$$$") (write/ss x) (newline))
+  (%lvar-initval-set! lv x))
+
 (define (make-lvar+ name) ;; procedure version of constructor, for mapping
   (make-lvar name))
 
@@ -287,6 +293,10 @@
 (define-simple-struct cenv #f make-cenv
   (module frames exp-name current-proc (source-path (current-load-path))))
 
+(define (cenv-lookup cenv name lookup-as)
+  (rlet1 r (cenv-lookup2 cenv name lookup-as)
+    '(format/ss #t ">>> ~s ~s\n" name cenv)))
+
 ;; Some cenv-related proceduers are in C for better performance.
 (inline-stub
  ;; cenv-lookup :: Cenv, Name, LookupAs -> Var
@@ -300,19 +310,30 @@
  ;;     - We assume the frame structure is well-formed, so skip some tests.
  ;;     - We assume 'lookupAs' and the car of each frame are small non-negative
  ;;       integers, so we directly compare them without unboxing them.
- (define-cproc cenv-lookup (cenv name lookup-as)
+ (define-cproc cenv-lookup2 (cenv name lookup-as)
    (SCM_ASSERT (SCM_VECTORP cenv))
+   ;; First, we look up the identifier directly
+   (when (SCM_IDENTIFIERP name)
+     (dopairs [fp1 (SCM_VECTOR_ELEMENT cenv 1)]
+       (when (> (SCM_CAAR fp1) lookup-as) ; see PERFORMANCE KLUDGE above
+         (continue))
+       ;; inline assq here to squeeze performance.
+       (dolist [vp (SCM_CDAR fp1)]
+         (when (SCM_EQ name (SCM_CAR vp)) (return (SCM_CDR vp))))))
+   ;; Now we 'strip' the identifier's wrapping
    (let* ([name-ident?::int (SCM_IDENTIFIERP name)]
-          [frames (SCM_VECTOR_ELEMENT cenv 1)])
+          [frames (?: name-ident?
+                      (-> (SCM_IDENTIFIER name) env)
+                      (SCM_VECTOR_ELEMENT cenv 1))]
+          [true-name (?: name-ident?
+                         (SCM_OBJ (-> (SCM_IDENTIFIER name) name))
+                         name)])
      (dopairs [fp frames]
-       (when (and name-ident? (== (-> (SCM_IDENTIFIER name) env) fp))
-         ;; strip identifier if we're in the same env (kludge)
-         (set! name (SCM_OBJ (-> (SCM_IDENTIFIER name) name))))
        (when (> (SCM_CAAR fp) lookup-as) ; see PERFORMANCE KLUDGE above
          (continue))
        ;; inline assq here to squeeze performance.
        (dolist [vp (SCM_CDAR fp)]
-         (when (SCM_EQ name (SCM_CAR vp)) (return (SCM_CDR vp)))))
+         (when (SCM_EQ true-name (SCM_CAR vp)) (return (SCM_CDR vp)))))
      (if (SCM_SYMBOLP name)
        (let* ([mod (SCM_VECTOR_ELEMENT cenv 0)])
          (SCM_ASSERT (SCM_MODULEP mod))
@@ -1413,9 +1434,12 @@
 ;; `pass1 for syntax' on (car PROGRAM) and check the result to see if
 ;; we need to treat PROGRAM as a special form or an ordinary procedure.
 ;; It would be a large change, so this is a compromise...
-(define-inline (pass1/lookup-head head cenv)
-  (or (and (variable? head)
-           (cenv-lookup cenv head SYNTAX))
+(define (pass1/lookup-head head cenv)
+  (or (rlet1 z (and (variable? head)
+                    (cenv-lookup cenv head SYNTAX))
+        (when (and (identifier? head)
+                   (eq? (identifier-name head) 'if))
+          '(format/ss #t "&&& ~s ~s\n" z cenv)))
       (and (pair? head)
            (module-qualified-variable? head cenv)
            (let1 mod (ensure-module (cadr head) 'with-module #f)
@@ -1942,6 +1966,14 @@
 
 ;; Macros ...........................................
 
+(define-pass1-syntax (er-transformer form cenv) :gauche
+  (match form
+    [(_ xformer)
+     (pass1 `((with-module gauche.internal %make-er-transformer)
+              ,xformer ',cenv)
+            cenv)]
+    [_ (error "syntax-error: malformed er-transformer:" form)]))
+
 (define-pass1-syntax (%macroexpand form cenv) :gauche
   (match form
     [(_ expr) ($const (%internal-macro-expand expr (cenv-frames cenv) #f))]
@@ -2148,9 +2180,9 @@
             (process-binds more body cenv)
             ($it))]
       [(([? variable? var] init) . more)
-       (let* ((lvar (make-lvar var))
-              (newenv (cenv-extend cenv `((,var . ,lvar)) LEXICAL))
-              (itree (pass1 init (cenv-add-name cenv var))))
+       (let* ([lvar (make-lvar var)]
+              [newenv (cenv-extend cenv `((,var . ,lvar)) LEXICAL)]
+              [itree (pass1 init (cenv-add-name cenv var))])
          (lvar-initval-set! lvar itree)
          ($let form 'let
                (list lvar)
@@ -2449,6 +2481,8 @@
              (map (^[init lvar]
                     (rlet1 iexpr
                         (pass1 init (cenv-add-name cenv (lvar-name lvar)))
+                      (when (eq? (lvar-name lvar) 'if)
+                        (format/ss #t "*** yot! ~s\n" cenv))
                       (lvar-initval-set! lvar iexpr)))
                   expr lvars)
              (pass1/body body newenv)))]
@@ -2781,7 +2815,7 @@
 ;; Class stuff ........................................
 
 ;; KLUDGES.  They should be implemented as macros, but the
-;; current compiler doesn't preserves macro definitions.
+;; current compiler doesn't preserve macro definitions.
 ;; These syntax handler merely expands the given form to
 ;; the call to internal procedures of objlib.scm, which
 ;; returns the macro expanded form.
@@ -5486,6 +5520,28 @@
                     [else (pass1 r cenv)]))))))
 
 ;;============================================================
+;; Macro
+;;
+
+;; xformer :: (Sexpr, (Sym -> Sym), (Sym, Sym -> Bool)) -> Sexpr
+(define (%make-er-transformer xformer cenv)
+  (define (rename sym)
+    (make-identifier
+     (cond [(identifier? sym) (identifier-name sym)]
+           [(symbol? sym) sym]
+           ;; TODO: better error message
+           [else (error "Rename received non-symbol argument:" sym)])
+     (cenv-module cenv)
+     (cenv-frames cenv)))
+  (define (compare a b uenv) (eq? a b)) ;; for now
+  (define (expand form uenv)
+    (format/ss #t "@@@ ~s\n" uenv)
+    (rlet1 z (xformer form rename (^[a b] (compare a b uenv)))
+      (format/ss #t "III ~s\n" form)
+      (format/ss #t "OOO ~s\n" z)))
+  (%make-macro-transformer (cenv-exp-name cenv) expand))
+
+;;============================================================
 ;; Utilities
 ;;
 
@@ -5650,10 +5706,6 @@
 ;; Some C routines called from the expanded macro result.
 ;; These procedures are originally implemented in Scheme, but moved
 ;; here for efficiency.
-;; Some procedures depend on the structure defined in compile.scm,
-;; and need to be adjusted if the structure is changed.
-;; In future, precomp should be extended so that these routines can
-;; be written in compile.scm as "inlined C" code.
 (inline-stub
  ;; %imax - max for unsigned integer only, unsafe.
  (define-cproc %imax (x y)
@@ -5724,7 +5776,7 @@
 
 (inline-stub
  (define-cproc make-compiled-code-builder (reqargs::<uint16> optargs::<uint16>
-                                                             name parent intform)
+                                           name parent intform)
    Scm_MakeCompiledCodeBuilder)
 
  ;; CompiledCodeEmit is performance critical.  To reduce the overhead of
@@ -5901,3 +5953,29 @@
 ;; being we use it in limited purposes for compilers.  In interpreter
 ;; we just ignore it.
 (define-macro (declare . _) #f)
+
+;; Scope of macro-induced identifier
+;;
+;;  [1] inserting free variable
+;;      (^[f r c]
+;;         (.... (r'id) ...) )   id is free in this scope
+;;
+;;      id will refer to the global var in this module
+;;
+;;  [2] inserting binding and variable
+;;      (^[f r c]
+;;        `(let (,(r'id) ...)    ;;ZZ
+;;            ... ,(r'id) ...))
+;;      id will refer to the one inserted at ZZ.
+;;
+;;  [3] inserting locally bound variable
+;;      (let ((id ...))  ;; ZZ
+;;        (letrec-syntax ([ ... (^[f r c]
+;;                                 ... (r'id) ... ))])
+;;           ...))
+;;      id will refer to the local variable ZZ
+;;
+;;  [4] inserting bare identifier
+;;       - interpreted in the macro use environment (unhygienic)
+;;
+;; 

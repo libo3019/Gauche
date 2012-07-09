@@ -145,7 +145,8 @@ static void identifier_print(ScmObj obj, ScmPort *port, ScmWriteContext *ctx)
        module-based sandbox implementation, so further consideration is
        required.
     */
-    Scm_Printf(port, "#<identifier %S#%S>", id->module->name, id->name);
+    Scm_Printf(port, "#<identifier %S#%S.%x>",
+               id->module->name, id->name, SCM_WORD(id));
 }
 
 SCM_DEFINE_BUILTIN_CLASS_SIMPLE(Scm_IdentifierClass, identifier_print);
@@ -165,6 +166,7 @@ static ScmObj get_binding_frame(ScmObj var, ScmObj env)
 ScmObj Scm_MakeIdentifier(ScmSymbol *name, ScmModule *mod, ScmObj env)
 {
     ScmIdentifier *id = SCM_NEW(ScmIdentifier);
+    
     SCM_SET_CLASS(id, SCM_CLASS_IDENTIFIER);
     id->name = name;
     id->module = mod? mod : SCM_CURRENT_MODULE();

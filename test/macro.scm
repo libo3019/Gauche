@@ -19,6 +19,58 @@
   `(test ,msg ',expect (lambda () (unident (%macroexpand ,form)))))
 
 ;;----------------------------------------------------------------------
+;; explicit renaming macros
+
+(test-section "ER macro basics")
+
+(define-syntax er-when
+  (er-transformer
+   (^[f r c]
+     (let ([test (cadr f)]
+           [exprs (cddr f)])
+       `(,(r 'if) ,test (,(r 'begin) ,@exprs))))))
+
+(test "when - basic" #t (^[] (let ((x #f)) (er-when #t (set! x #t)) x)))
+(test "when - basic" #f (^[] (let ((x #f)) (er-when #f (set! x #t)) x)))
+
+(test "when - hygene" 3
+      (^[] (let ([if list]
+                 [begin list])
+             (er-when #t 1 2 3))))
+
+(define-syntax er-aif
+  (er-transformer
+   (^[f r c]
+     (let ([test (cadr f)]
+           [then (caddr f)]
+           [else (cadddr f)])
+       `(,(r 'let) ((it ,test))
+           (,(r 'if) it ,then ,else))))))
+
+(test "aif - basic" 4 (^[] (er-aif (+ 1 2) (+ it 1) #f)))
+(test "aif - basic" 5 (^[] (let ((it 999)) (er-aif (+ 1 2) (+ it 2) #f))))
+
+(test "aif - hygene" 6
+      (^[] (let ((it 999)
+                 (let list))
+             (er-aif (+ 1 2) (+ it 3) #f))))
+(test "aif - nesting" #t
+      (^[] (let ([it 999])
+             (er-aif (+ 1 2) (er-aif (odd? it) it #f) #f))))
+
+(test-section "ER macro local scope")
+
+(let ([if list])
+  (let-syntax ([fake-if (er-transformer
+                         (^[f r c] `(,(r 'if) ,@(cdr f))))])
+    (test "fake-if" '(1 2 3) (^[] (fake-if 1 2 3)))
+    (let ([if +])
+      (test "fake-if" '(4 5 6) (^[] (fake-if 4 5 6))))))
+
+(test-end)
+(exit)
+
+;;----------------------------------------------------------------------
 ;; basic tests
 
 (test-section "basic expansion")
