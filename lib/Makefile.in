@@ -30,9 +30,10 @@ GENERATED       = gauche/vm/insn.scm gauche/config.scm
 CONFIG_GENERATED = Makefile slib.scm
 
 SUBDIRS  = gauche gauche/vm gauche/serializer gauche/interactive gauche/mop \
-           gauche/package gauche/cgen gauche/experimental \
+           gauche/package gauche/cgen gauche/experimental gauche/test \
 	   srfi-14 srfi-29 \
-           binary control dbd dbm math util compat file rfc text www www/cgi
+           binary control data dbd dbm math util compat file rfc text \
+           www www/cgi
 
 SCMFILES = srfi-0.scm \
        srfi-4.scm srfi-5.scm srfi-7.scm srfi-9.scm srfi-11.scm \
@@ -41,8 +42,8 @@ SCMFILES = srfi-0.scm \
        srfi-29.scm srfi-29/bundle.scm srfi-29/format.scm srfi-31.scm \
        srfi-37.scm srfi-42.scm srfi-55.scm srfi-60.scm srfi-98.scm \
        slib.scm	 \
-       gauche/redefutil.scm gauche/test.scm gauche/time.scm \
-       gauche/macroutil.scm gauche/stringutil.scm \
+       gauche/test.scm gauche/test/generative.scm gauche/time.scm \
+       gauche/redefutil.scm gauche/macroutil.scm gauche/stringutil.scm \
        gauche/condutil.scm gauche/portutil.scm \
        gauche/hashutil.scm gauche/treeutil.scm \
        gauche/modutil.scm gauche/libutil.scm gauche/sortutil.scm \
