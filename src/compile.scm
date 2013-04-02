@@ -295,7 +295,12 @@
 
 (define (cenv-lookup cenv name lookup-as)
   (rlet1 r (cenv-lookup2 cenv name lookup-as)
-    '(format/ss #t ">>> ~s ~s\n" name cenv)))
+    (when (and (vector? r)
+               (eq? (vector-ref r 0) 'lvar)
+               (eq? (vector-ref r 1) 'if)
+               (vector? (vector-ref r 2))
+               (eq? (vector-ref (vector-ref r 2) 1) 'list))
+      (format/ss #t ">>> ~s -> ~s {~s}\n" name r cenv))))
 
 ;; Some cenv-related proceduers are in C for better performance.
 (inline-stub
@@ -493,9 +498,19 @@
 
 ;; $gref <id>
 ;;   Global variable reference.
-(define-simple-struct $gref $GREF $gref
+(define-simple-struct $%gref $GREF $gref
   (id        ; identifier
    ))
+
+(define ($gref x)
+  (unless (identifier? x) (error "Bong bong!" x))
+  ($%gref x))
+
+(define ($gref-id x)
+  (vector-ref x 1))
+(define ($gref-id-set! x v)
+  (unless (identifier? v) (error "Bong bong!" v))
+  ($%gref-id-set! x v))
 
 ;; $gset <id> <iform>
 ;;   Global variable assignment.
