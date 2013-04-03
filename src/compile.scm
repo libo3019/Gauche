@@ -294,13 +294,7 @@
   (module frames exp-name current-proc (source-path (current-load-path))))
 
 (define (cenv-lookup cenv name lookup-as)
-  (rlet1 r (cenv-lookup2 cenv name lookup-as)
-    (when (and (vector? r)
-               (eq? (vector-ref r 0) 'lvar)
-               (eq? (vector-ref r 1) 'if)
-               (vector? (vector-ref r 2))
-               (eq? (vector-ref (vector-ref r 2) 1) 'list))
-      (format/ss #t ">>> ~s -> ~s {~s}\n" name r cenv))))
+  (cenv-lookup2 cenv name lookup-as))
 
 ;; Some cenv-related proceduers are in C for better performance.
 (inline-stub
@@ -1745,6 +1739,10 @@
 (define eager.  (global-id 'eager))
 (define values. (global-id 'values))
 
+(define %make-er-transformer. (make-identifier '%make-er-transformer
+                                               (find-module 'gauche.internal)
+                                               '()))
+
 ;; Definitions ........................................
 
 ;; Note on constant binding and inlinable binding:
@@ -1984,9 +1982,10 @@
 (define-pass1-syntax (er-transformer form cenv) :gauche
   (match form
     [(_ xformer)
-     (pass1 `((with-module gauche.internal %make-er-transformer)
-              ,xformer ',cenv)
-            cenv)]
+     (let1 xf-iform (pass1 xformer cenv)
+       ($call #f ;; TODO
+              ($gref %make-er-transformer.)
+              (list xf-iform ($const cenv))))]
     [_ (error "syntax-error: malformed er-transformer:" form)]))
 
 (define-pass1-syntax (%macroexpand form cenv) :gauche
@@ -2496,8 +2495,6 @@
              (map (^[init lvar]
                     (rlet1 iexpr
                         (pass1 init (cenv-add-name cenv (lvar-name lvar)))
-                      (when (eq? (lvar-name lvar) 'if)
-                        (format/ss #t "*** yot! ~s\n" cenv))
                       (lvar-initval-set! lvar iexpr)))
                   expr lvars)
              (pass1/body body newenv)))]
@@ -5550,10 +5547,7 @@
      (cenv-frames cenv)))
   (define (compare a b uenv) (eq? a b)) ;; for now
   (define (expand form uenv)
-    (format/ss #t "@@@ ~s\n" uenv)
-    (rlet1 z (xformer form rename (^[a b] (compare a b uenv)))
-      (format/ss #t "III ~s\n" form)
-      (format/ss #t "OOO ~s\n" z)))
+    (xformer form rename (^[a b] (compare a b uenv))))
   (%make-macro-transformer (cenv-exp-name cenv) expand))
 
 ;;============================================================
