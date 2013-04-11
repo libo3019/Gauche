@@ -932,7 +932,7 @@ return #t if the template has variable length elements.
 
 @node Rational-less arithmetic, A common job descriptor for control modules, Packing Binary Data, Library modules - Utilities
 @section @code{compat.norational} - Rational-less arithmetic
-@c NODE @code{compat.norational} - 有理数のない算術演算
+@c NODE 有理数のない算術演算, @code{compat.norational} - 有理数のない算術演算
 
 @deftp {Module} compat.norational
 @mdindex compat.norational
@@ -1651,7 +1651,7 @@ bcryptアルゴリズムでは少なくとも16バイトの長さが必要です
 
 @node Database independent access layer, Generic DBM interface, Password hashing, Library modules - Utilities
 @section @code{dbi} - Database independent access layer
-@c NODE @code{dbi} - データベース非依存アクセス層
+@c NODE データベース非依存アクセス層, @code{dbi} - データベース非依存アクセス層
 
 @deftp {Module} dbi
 @mdindex dbi
@@ -1937,6 +1937,7 @@ is returned.  Otherwise, an error is signaled.
 @end defun
 
 @deftp {Class} <dbi-connection>
+@clindex dbi-connection
 @c EN
 The base class of a connection to a database system.
 Each driver defines a subclass of this to keep information about
@@ -1992,6 +1993,7 @@ Returns a list of module names of known drivers.
 @end defun
 
 @deftp {Class} <dbi-driver>
+@clindex dbi-driver
 @c EN
 The base class of a driver.  You usually don't need to see this
 as far as you're using the high-level @code{dbi} API.
@@ -2122,6 +2124,7 @@ always surround names by double quotes.
 @end deffn
 
 @deftp {Class} <dbi-query>
+@clindex dbi-query
 @c EN
 Holds information about prepared query, created by @code{dbi-prepare}.
 The following slots are defined.
@@ -6055,6 +6058,7 @@ Calls @code{AllocConsole} and @code{FreeConsole}, respectively.
 @end defun
 
 @deftp {Class} <win:console-screen-buffer-info>
+@clindex win:console-screen-buffer-info
 [Windows]
 
 @defivar {<win:console-screen-buffer-info>} size.x
@@ -6106,6 +6110,7 @@ Calls @code{AllocConsole} and @code{FreeConsole}, respectively.
 @subsubheading Console input/output
 
 @deftp {Class} <win:input-record>
+@clindex win:input-record
 [Windows]
 
 @defivar {<win:input-record>} event-type
@@ -10584,6 +10589,8 @@ would be a simple @code{<error>} condition.
 
 @deftp {Class} <deflating-port>
 @deftpx {Class} <inflating-port>
+@clindex deflating-port
+@clindex inflating-port
 @c EN
 Compression and decompression functions are provided
 via ports.  A @emph{deflating port} is an output port
@@ -15856,7 +15863,7 @@ as many characters available.
 @c ----------------------------------------------------------------------
 @node Showing progress on text terminals, SQL parsing and construction, Parsing input stream, Library modules - Utilities
 @section @code{text.progress} - Showing progress on text terminals
-@c NODE @code{text.progress} - テキスト端末上でプログレスを表示する
+@c NODE テキスト端末上でプログレスを表示する, @code{text.progress} - テキスト端末上でプログレスを表示する
 
 @deftp {Module} text.progress
 @mdindex text.progress
@@ -16162,7 +16169,7 @@ Here's a simple example, using customized numeric part:
 @c ----------------------------------------------------------------------
 @node SQL parsing and construction, Transliterate characters, Showing progress on text terminals, Library modules - Utilities
 @section @code{text.sql} - SQL parsing and construction
-@c NODE @code{text.sql} - SQLのパーズと構築
+@c NODE SQLのパーズと構築, @code{text.sql} - SQLのパーズと構築
 
 @deftp {Module} text.sql
 @mdindex text.sql
@@ -18630,6 +18637,7 @@ util.rbtreeのAPIはハッシュテーブルのAPIに似せて作られており
 @end deftp
 
 @deftp {Class} <rbtree>
+@clindex rbtree
 @c EN
 A class for red black trees.  Inherits @code{<sequence>},
 so that you can apply sequence APIs on a red black tree.
@@ -19018,7 +19026,7 @@ obj @result{} #<my-record 0x819d9b0>
 @c ----------------------------------------------------------------------
 @node Relation framework, Sparse data containers, SLIB-compatible record type, Library modules - Utilities
 @section @code{util.relation} - Relation framework
-@c NODE @code{util.relation} - リレーションフレームワーク
+@c NODE リレーションフレームワーク, @code{util.relation} - リレーションフレームワーク
 
 @deftp {Module} util.relation
 @mdindex util.relation
@@ -19118,6 +19126,7 @@ common methods.
 @c COMMON
 
 @deftp {Class} <relation>
+@clindex relation
 @c EN
 An abstract base class of relations.
 @c JP
@@ -19356,15 +19365,17 @@ you can write like this:
 @c COMMON
 
 @deftp {Class} <simple-relation>
+@clindex simple-relation
 @end deftp
 
 @deftp {Class} <object-set-relation>
+@clindex object-set-relation
 @end deftp
 
 @c ----------------------------------------------------------------------
 @node Sparse data containers, Stream library, Relation framework, Library modules - Utilities
 @section @code{util.sparse} - Sparse data containers
-@c NODE @code{util.sparse} - 疎なデータコンテナ
+@c NODE 疎なデータコンテナ, @code{util.sparse} - 疎なデータコンテナ
 
 @deftp {Module} util.sparse
 @mdindex util.sparse
@@ -20251,7 +20262,7 @@ inserted between elements of @var{stream}.
 @c ----------------------------------------------------------------------
 @node Trie, Topological sort, Stream library, Library modules - Utilities
 @section @code{util.trie} - Trie
-@c NODE @code{util.trie} - Trie
+@c NODE Trie, @code{util.trie} - Trie
 
 @deftp {Module} util.trie
 @mdindex util.trie
@@ -20323,6 +20334,7 @@ Trieは@code{<collection>}を継承しており、コレクションフレーム
 @end deftp
 
 @deftp {Class} <trie>
+@clindex trie
 @c EN
 A class for Trie.  No slots are intended for public.
 Use the following procedures to operate on tries.

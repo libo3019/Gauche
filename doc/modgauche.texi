@@ -2075,6 +2075,7 @@ the C world, and vice versa.   The maybe variation is only
 meaningful when the C type is a pointer type.
 
 @deftp {Class} <cgen-type>
+@clindex cgen-type
 An instance of this class represents a stub type.
 It can be looked up by name such as @code{<const-cstring>} by
 @code{cgen-type-from-name}.
@@ -3363,7 +3364,7 @@ without any argument from the shell, to find out the valid options.
 @c ----------------------------------------------------------------------
 @node Dictionary framework, Low-level file operations, Configuration parameters, Library modules - Gauche extensions
 @section @code{gauche.dictionary} - Dictionary framework
-@c NODE @code{gauche.dictionary} - ディクショナリフレームワーク
+@c NODE ディクショナリフレームワーク, @code{gauche.dictionary} - ディクショナリフレームワーク
 
 @deftp {Module} gauche.dictionary
 @mdindex gauche.dictionary
@@ -3522,6 +3523,7 @@ in the increasing order of keys.
 @c NODE 汎用ディクショナリ
 
 @deftp {Class} <bimap>
+@clindex binmap
 Provides a bidirectional map (@emph{bimap}), a relation between two
 set of values, of which you can lookup both ways.
 
@@ -5230,8 +5232,11 @@ to parse the info file.
 @section @code{gauche.lazy} - Lazy sequence utilities
 @c NODE 遅延シーケンスユーティリティ, @code{gauche.lazy} - 遅延シーケンスユーティリティ
 
+@deftp {Module} gauche.lazy
+@mdindex gauche.lazy
 This module provides utiltiy procedures that yields lazy sequences.
 For the details of lazy sequences, see @ref{Lazy sequences}.
+@end deftp
 
 Since lazy sequences are forced implicitly and indistinguishable
 from ordinary lists, we don't need a separate set of procedures
@@ -5421,6 +5426,7 @@ but the current version doesn't implement it.
 @subheading Listener API
 
 @deftp {Class} <listener>
+@clindex listener
 @c EN
 An object that maintains the state of a repl session.
 It has many external slots to customize its behavior.
