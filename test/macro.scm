@@ -67,6 +67,64 @@
     (let ([if +])
       (test "fake-if" '(4 5 6) (^[] (fake-if 4 5 6))))))
 
+(test-section "ER compare literals")
+
+;; from Clinger "Hygienic Macros Through Explicit Renaming"
+(define-syntax er-cond
+  (er-transformer
+   (^[f r c]
+     (let1 clauses (cdr f)
+       (if (null? clauses)
+         `(,(r 'quote) ,(r 'unspecified))
+         (let* ([first (car clauses)]
+                [rest  (cdr clauses)]
+                [test  (car first)])
+           (cond [(and (or (symbol? test)
+                           (identifier? test))
+                       (c test (r 'else)))
+                  `(,(r 'begin) ,@(cdr first))]
+                 [else `(,(r 'if) ,test
+                         (,(r 'begin) ,@(cdr first))
+                         (er-cond ,@rest))])))))))
+
+(define (er-cond-tester1 x)
+  (er-cond [(odd? x) 'odd] [else 'even]))
+
+(test "er-cond 1" '(even odd)
+      (^[] (list (er-cond-tester1 0) (er-cond-tester1 1))))
+
+(let ([else #f])
+  (define (er-cond-tester2 x)
+    (er-cond [(odd? x) 'odd] [else 'even]))
+  (test "er-cond 2" '(unspecified odd)
+        (^[] (list (er-cond-tester2 0) (er-cond-tester2 1)))))
+
+(define-module er-test-mod
+  (export er-cond2)
+  (define-syntax er-cond2
+    (er-transformer
+     (^[f r c]
+       (let1 clauses (cdr f)
+         (if (null? clauses)
+           `(,(r 'quote) ,(r 'unspecified))
+           (let* ([first (car clauses)]
+                  [rest  (cdr clauses)]
+                  [test  (car first)])
+             (cond [(and (or (symbol? test)
+                             (identifier? test))
+                         (c test (r 'else)))
+                    `(,(r 'begin) ,@(cdr first))]
+                   [else `(,(r 'if) ,test
+                           (,(r 'begin) ,@(cdr first))
+                           (er-cond ,@rest))]))))))))
+(define-module er-test-mod2
+  (use gauche.test)
+  (import er-test-mod)
+  (define (er-cond-tester1 x)
+    (er-cond2 [(odd? x) 'odd] [else 'even]))
+  (test "er-cond (cross-module)" '(even odd)
+        (^[] (list (er-cond-tester1 0) (er-cond-tester1 1)))))
+
 ;;----------------------------------------------------------------------
 ;; basic tests
 

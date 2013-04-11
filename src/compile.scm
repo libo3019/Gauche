@@ -5535,19 +5535,43 @@
 ;; Macro
 ;;
 
+;; er-renamer :: Sym-or-id, [Id] -> (Id, [Id])
+(define (er-renamer sym dict module env)
+  (if-let1 id (assq-ref dict sym)
+    (values id dict)
+    (let1 id (make-identifier
+              (cond [(identifier? sym) (identifier-name sym)]
+                    [(symbol? sym) sym]
+                    ;; TODO: better error message
+                    [else (error "Rename received non-symbol argument:" sym)])
+              module
+              env)
+      (values id (acons sym id dict)))))
+
 ;; xformer :: (Sexpr, (Sym -> Sym), (Sym, Sym -> Bool)) -> Sexpr
 (define (%make-er-transformer xformer cenv)
-  (define (rename sym)
-    (make-identifier
-     (cond [(identifier? sym) (identifier-name sym)]
-           [(symbol? sym) sym]
-           ;; TODO: better error message
-           [else (error "Rename received non-symbol argument:" sym)])
-     (cenv-module cenv)
-     (cenv-frames cenv)))
-  (define (compare a b uenv) (eq? a b)) ;; for now
+  (define def-module (cenv-module cenv))
+  (define def-env    (cenv-frames cenv))
+  (define (compare a b uenv)
+    ;; TODO: need to consider how we pass along uenv
+    (let1 cuenv (make-cenv (vm-current-module) uenv)
+      (let ([a1 (cenv-lookup cuenv a SYNTAX)]
+            [b1 (cenv-lookup cuenv b SYNTAX)])
+        (or (eq? a b)
+            (and (identifier? a1)
+                 (identifier? b1)
+                 (eq? (identifier-name a1) (identifier-name b1))
+                 (null? (identifier-env a1))
+                 (null? (identifier-env b1))
+                 (eq? (identifier-module a1) (identifier-module b1)))))))
   (define (expand form uenv)
-    (xformer form rename (^[a b] (compare a b uenv))))
+    (let1 dict '()
+      (xformer form
+               (^[sym]
+                 (receive [id dict_] (er-renamer sym dict def-module def-env)
+                   (set! dict dict_)
+                   id))
+               (^[a b] (compare a b uenv)))))
   (%make-macro-transformer (cenv-exp-name cenv) expand))
 
 ;;============================================================
