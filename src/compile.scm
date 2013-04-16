@@ -293,27 +293,19 @@
 (define-simple-struct cenv #f make-cenv
   (module frames exp-name current-proc (source-path (current-load-path))))
 
-(define (cenv-lookup cenv name lookup-as)
-  (cenv-lookup2 cenv name lookup-as))
-
 ;; Some cenv-related proceduers are in C for better performance.
 (inline-stub
- ;; cenv-lookup :: Cenv, Name, LookupAs -> Var
+ ;; env-lookup :: Name, LookupAs, Module, [Frame] -> Var
  ;;         where Var = Lvar | Identifier | Macro
  ;;
- ;;  LookupAs ::
- ;;      LEXICAL(0) - lookup only lexical bindings
- ;;    | SYNTAX(1)  - lookup lexical and syntactic bindings
- ;;    | PATTERN(2) - lookup lexical, syntactic and pattern bindings
  ;;  PERFORMANCE KLUDGE:
  ;;     - We assume the frame structure is well-formed, so skip some tests.
  ;;     - We assume 'lookupAs' and the car of each frame are small non-negative
  ;;       integers, so we directly compare them without unboxing them.
- (define-cproc cenv-lookup2 (cenv name lookup-as)
-   (SCM_ASSERT (SCM_VECTORP cenv))
+ (define-cfn env-lookup (name lookup-as module::ScmModule* frames) :static
    ;; First, we look up the identifier directly
    (when (SCM_IDENTIFIERP name)
-     (dopairs [fp1 (SCM_VECTOR_ELEMENT cenv 1)]
+     (dopairs [fp1 frames]
        (when (> (SCM_CAAR fp1) lookup-as) ; see PERFORMANCE KLUDGE above
          (continue))
        ;; inline assq here to squeeze performance.
@@ -323,10 +315,12 @@
    (let* ([name-ident?::int (SCM_IDENTIFIERP name)]
           [frames (?: name-ident?
                       (-> (SCM_IDENTIFIER name) env)
-                      (SCM_VECTOR_ELEMENT cenv 1))]
+                      frames)]
           [true-name (?: name-ident?
                          (SCM_OBJ (-> (SCM_IDENTIFIER name) name))
                          name)])
+     (unless (or (SCM_NULLP frames) (SCM_PAIRP frames))
+       (Scm_Printf SCM_CURERR ">>> %S\n" frames))
      (dopairs [fp frames]
        (when (> (SCM_CAAR fp) lookup-as) ; see PERFORMANCE KLUDGE above
          (continue))
@@ -334,12 +328,23 @@
        (dolist [vp (SCM_CDAR fp)]
          (when (SCM_EQ true-name (SCM_CAR vp)) (return (SCM_CDR vp)))))
      (if (SCM_SYMBOLP name)
-       (let* ([mod (SCM_VECTOR_ELEMENT cenv 0)])
-         (SCM_ASSERT (SCM_MODULEP mod))
-         (result (Scm_MakeIdentifier (SCM_SYMBOL name) (SCM_MODULE mod) '())))
+       (return (Scm_MakeIdentifier (SCM_SYMBOL name) module '()))
        (begin
          (SCM_ASSERT (SCM_IDENTIFIERP name))
-         (result name)))))
+         (return name)))))
+
+  ;; cenv-lookup :: Cenv, Name, LookupAs -> Var
+ ;;         where Var = Lvar | Identifier | Macro
+ ;;
+ ;;  LookupAs ::
+ ;;      LEXICAL(0) - lookup only lexical bindings
+ ;;    | SYNTAX(1)  - lookup lexical and syntactic bindings
+ ;;    | PATTERN(2) - lookup lexical, syntactic and pattern bindings
+ (define-cproc cenv-lookup (cenv name lookup-as)
+   (result
+    (env-lookup name lookup-as
+                (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
+                (SCM_VECTOR_ELEMENT cenv 1))))             ; frames
 
  ;; Check if Cenv is toplevel or not.
  ;;
@@ -5536,6 +5541,10 @@
 ;;
 
 ;; er-renamer :: Sym-or-id, [Id] -> (Id, [Id])
+;; Renamer creates an identifier out of bare symbol.  The identifier is
+;; unique per macro invocation.  We keep an alist of sym & created ids
+;; during one macro invocation to guarantee that eq?-ness of the renamed
+;; identifiers.
 (define (er-renamer sym dict module env)
   (if-let1 id (assq-ref dict sym)
     (values id dict)
@@ -5547,6 +5556,8 @@
               module
               env)
       (values id (acons sym id dict)))))
+
+;; 
 
 ;; xformer :: (Sexpr, (Sym -> Sym), (Sym, Sym -> Bool)) -> Sexpr
 (define (%make-er-transformer xformer cenv)
@@ -5560,10 +5571,7 @@
         (or (eq? a b)
             (and (identifier? a1)
                  (identifier? b1)
-                 (eq? (identifier-name a1) (identifier-name b1))
-                 (null? (identifier-env a1))
-                 (null? (identifier-env b1))
-                 (eq? (identifier-module a1) (identifier-module b1)))))))
+                 (bound-id=? a1 b1))))))
   (define (expand form uenv)
     (let1 dict '()
       (xformer form
