@@ -1,7 +1,7 @@
 /*
  * module.c - module implementation
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -39,12 +39,18 @@
 /*
  * Modules
  *
- *  A module maps symbols to global locations.
+ *  A module maps symbols to global locations (GLOCs).
  *  The mapping is resolved at the compile time.
  *  Scheme's current-module is therefore a syntax, instead of
  *  a procedure, to capture compile-time information.
  *
- *  Modules are registered to global hash table using their names
+ *  Each module has two hashtables; the 'internal' table keeps all the
+ *  bindings in the module, while the 'external' table keeps only the
+ *  bindings that are exported.  In most cases, the latter is a subset
+ *  of the former.  If a binding is renamed on export, however,
+ *  two tables map different symbols on the same GLOC.
+ *
+ *  Modules are registered to a global hash table using their names
  *  as keys, so that the module is retrieved by its name.  The exception
  *  is "anonymous modules", which have #f as the name field
  *  and not registered in the global table.   Anonymous modules are especially
@@ -115,11 +121,12 @@ static ScmObj defaultMpl =     SCM_NIL; /* will be initialized */
 static void init_module(ScmModule *m, ScmObj name)
 {
     m->name = name;
-    m->imported = m->exported = m->depended = SCM_NIL;
+    m->imported = m->depended = SCM_NIL;
     m->exportAll = FALSE;
     m->parents = defaultParents;
     m->mpl = Scm_Cons(SCM_OBJ(m), defaultMpl);
-    m->table = SCM_HASH_TABLE(Scm_MakeHashTableSimple(SCM_HASH_EQ, 0));
+    m->internal = SCM_HASH_TABLE(Scm_MakeHashTableSimple(SCM_HASH_EQ, 0));
+    m->external = SCM_HASH_TABLE(Scm_MakeHashTableSimple(SCM_HASH_EQ, 0));
     m->origin = m->prefix = SCM_FALSE;
 }
 
@@ -243,6 +250,7 @@ ScmGloc *Scm_FindBinding(ScmModule *module, ScmSymbol *symbol, int flags)
     ScmObj v, p, mp;
     ScmGloc *gloc = NULL;
     int stay_in_module = flags&SCM_BINDING_STAY_IN_MODULE;
+    int external_only = flags&SCM_BINDING_EXTERNAL;
     module_cache searched;
 
     init_module_cache(&searched);
@@ -252,7 +260,11 @@ ScmGloc *Scm_FindBinding(ScmModule *module, ScmSymbol *symbol, int flags)
        NB: we directly check gloc->value instead of calling
        SCM_GLOC_GET, since this check is merely to eliminate
        the GLOC inserted by export. */
-    v = Scm_HashTableRef(m->table, SCM_OBJ(symbol), SCM_FALSE);
+    if (external_only) {
+        v = Scm_HashTableRef(m->external, SCM_OBJ(symbol), SCM_FALSE);
+    } else {
+        v = Scm_HashTableRef(m->internal, SCM_OBJ(symbol), SCM_FALSE);
+    }
     if (SCM_GLOCP(v)) {
         gloc = SCM_GLOC(v);
         if (!SCM_GLOC_PHANTOM_BINDING_P(gloc)) goto out;
@@ -281,12 +293,12 @@ ScmGloc *Scm_FindBinding(ScmModule *module, ScmSymbol *symbol, int flags)
                 if (!SCM_SYMBOLP(sym)) goto skip;
             }
 
-            v = Scm_HashTableRef(m->table, SCM_OBJ(sym), SCM_FALSE);
+            v = Scm_HashTableRef(m->external, SCM_OBJ(sym), SCM_FALSE);
             /* see above comment about the check of gloc->value */
             if (SCM_GLOCP(v)) {
                 g = SCM_GLOC(v);
                 if (g->hidden) break;
-                if (g->exported && !SCM_UNBOUNDP(g->value)) {
+                if (!SCM_UNBOUNDP(g->value)) {
                     gloc = g;
                     goto out;
                 }
@@ -306,7 +318,11 @@ ScmGloc *Scm_FindBinding(ScmModule *module, ScmSymbol *symbol, int flags)
             if (!SCM_SYMBOLP(sym)) goto out;
             symbol = SCM_SYMBOL(sym);
         }
-        v = Scm_HashTableRef(m->table, SCM_OBJ(symbol), SCM_FALSE);
+        if (external_only) {
+            v = Scm_HashTableRef(m->external, SCM_OBJ(symbol), SCM_FALSE);
+        } else {
+            v = Scm_HashTableRef(m->internal, SCM_OBJ(symbol), SCM_FALSE);
+        }
         if (SCM_GLOCP(v)) { gloc = SCM_GLOC(v); goto out; }
     }
  out:
@@ -347,7 +363,7 @@ ScmGloc *Scm_MakeBinding(ScmModule *module, ScmSymbol *symbol,
                    : 0));
 
     SCM_INTERNAL_MUTEX_SAFE_LOCK_BEGIN(modules.mutex);
-    v = Scm_HashTableRef(module->table, SCM_OBJ(symbol), SCM_FALSE);
+    v = Scm_HashTableRef(module->internal, SCM_OBJ(symbol), SCM_FALSE);
     /* NB: this function bypasses check of gloc setter */
     if (SCM_GLOCP(v)) {
         g = SCM_GLOC(v);
@@ -356,11 +372,10 @@ ScmGloc *Scm_MakeBinding(ScmModule *module, ScmSymbol *symbol,
         oldval = g->value;
     } else {
         g = SCM_GLOC(Scm_MakeGloc(symbol, module));
-        Scm_HashTableSet(module->table, SCM_OBJ(symbol), SCM_OBJ(g), 0);
+        Scm_HashTableSet(module->internal, SCM_OBJ(symbol), SCM_OBJ(g), 0);
         /* If module is marked 'export-all', export this binding by default */
         if (module->exportAll) {
-            g->exported = TRUE;
-            module->exported = Scm_Cons(SCM_OBJ(g->name), module->exported);
+            Scm_HashTableSet(module->external, SCM_OBJ(symbol), SCM_OBJ(g), 0);
         }
     }
     SCM_INTERNAL_MUTEX_SAFE_LOCK_END();
@@ -399,6 +414,9 @@ ScmObj Scm_DefineConst(ScmModule *module, ScmSymbol *symbol, ScmObj value)
  *   This is not for genreral use.  It is intended to be used for
  *   intermediate anonymous modules, created by import handling
  *   routine to implement :except and :rename qualifiers.
+ *   Since we assume MODULE is for intermediate modules, we only
+ *   insert bindings to the external table, for those modules are
+ *   only searched in the 'import' path.
  */
 void Scm_HideBinding(ScmModule *module, ScmSymbol *symbol)
 {
@@ -407,18 +425,18 @@ void Scm_HideBinding(ScmModule *module, ScmSymbol *symbol)
     int err_exists = FALSE;
 
     (void)SCM_INTERNAL_MUTEX_LOCK(modules.mutex);
-    v = Scm_HashTableRef(module->table, SCM_OBJ(symbol), SCM_FALSE);
+    v = Scm_HashTableRef(module->external, SCM_OBJ(symbol), SCM_FALSE);
     if (!SCM_FALSEP(v)) {
         err_exists = TRUE;
     } else {
         g = SCM_GLOC(Scm_MakeGloc(symbol, module));
         g->hidden = TRUE;
-        Scm_HashTableSet(module->table, SCM_OBJ(symbol), SCM_OBJ(g), 0);
+        Scm_HashTableSet(module->external, SCM_OBJ(symbol), SCM_OBJ(g), 0);
     }
     (void)SCM_INTERNAL_MUTEX_UNLOCK(modules.mutex);
 
     if (err_exists) {
-        Scm_Error("hide-binding: binding already exists: %S", SCM_OBJ(symbol));
+        Scm_Error("hide-binding: binding already exists: %S (exports=%S)", SCM_OBJ(symbol), Scm_ModuleExports(module));
     }
 }
 
@@ -450,12 +468,11 @@ void Scm_HideBinding(ScmModule *module, ScmSymbol *symbol)
 int Scm_AliasBinding(ScmModule *target, ScmSymbol *targetName,
                      ScmModule *origin, ScmSymbol *originName)
 {
-    ScmGloc *g = Scm_FindBinding(origin, originName, 0);
-
-    if (g == NULL || !(g->exported)) return FALSE;
+    ScmGloc *g = Scm_FindBinding(origin, originName, SCM_BINDING_EXTERNAL);
+    if (g == NULL) return FALSE;
     SCM_INTERNAL_MUTEX_SAFE_LOCK_BEGIN(modules.mutex);
-    Scm_HashTableSet(target->table, SCM_OBJ(targetName), SCM_OBJ(g), 0);
-    target->exported = Scm_Cons(SCM_OBJ(targetName), target->exported);
+    Scm_HashTableSet(target->external, SCM_OBJ(targetName), SCM_OBJ(g), 0);
+    Scm_HashTableSet(target->internal, SCM_OBJ(targetName), SCM_OBJ(g), 0);
     SCM_INTERNAL_MUTEX_SAFE_LOCK_END();
     return TRUE;
 }
@@ -524,50 +541,92 @@ ScmObj Scm_ImportModules(ScmModule *module, ScmObj list)
 /*
  * Export
  */
-ScmObj Scm_ExportSymbols(ScmModule *module, ScmObj list)
+/* <spec>  :: <name> | (rename <name> <exported-name>) */
+ScmObj Scm_ExportSymbols(ScmModule *module, ScmObj specs)
 {
-    ScmObj lp, syms, badsym = SCM_FALSE;
+    ScmObj lp, badsym = SCM_FALSE;
+    ScmObj overwritten = SCM_NIL; /* list of (exported-name orig-internal-name
+                                     new-internal-name). */
     int error = FALSE;
-    ScmSymbol *s;
+    ScmSymbol *name, *exported_name;
     ScmDictEntry *e;
     ScmGloc *g;
 
-    /* We used to do something like
-     *  (set! (module-exports module)
-     *        (delete-duplicates (union (module-exports module) list)))
-     * This was slow when we exported lots of symbols.  As of 0.8.6,
-     * each GLOC has exported flag, so we can check whether a binding
-     * is exported or not in O(1).   Module-exports list is kept
-     * for backward compatibility.
-     */
-    (void)SCM_INTERNAL_MUTEX_LOCK(modules.mutex);
-    syms = module->exported;
-    SCM_FOR_EACH(lp, list) {
-        if (!SCM_SYMBOLP(SCM_CAR(lp))) {
-            error = TRUE;
-            badsym = SCM_CAR(lp);
-            break;
-        }
-        s = SCM_SYMBOL(SCM_CAR(lp));
-        e = Scm_HashCoreSearch(SCM_HASH_TABLE_CORE(module->table),
-                               (intptr_t)s, SCM_DICT_CREATE);
-        if (e->value) {         /* e->value must be GLOC. */
-            g = SCM_GLOC(e->value);
-            if (!g->exported) {
-                syms = Scm_Cons(SCM_OBJ(s), syms);
-                g->exported = TRUE;
-            }
-        } else {
-            g = SCM_GLOC(Scm_MakeGloc(s, module));
-            g->exported = TRUE;
-            (void)SCM_DICT_SET_VALUE(e, SCM_OBJ(g));
-            syms = Scm_Cons(SCM_OBJ(s), syms);
+    /* Check input first */
+    SCM_FOR_EACH(lp, specs) {
+        ScmObj spec = SCM_CAR(lp);
+        if (!(SCM_SYMBOLP(spec)
+              || (SCM_PAIRP(spec) && SCM_PAIRP(SCM_CDR(spec))
+                  && SCM_PAIRP(SCM_CDDR(spec))
+                  && SCM_NULLP(SCM_CDR(SCM_CDDR(spec)))
+                  && SCM_EQ(SCM_CAR(spec), SCM_SYM_RENAME)
+                  && SCM_SYMBOLP(SCM_CADR(spec))
+                  && SCM_SYMBOLP(SCM_CAR(SCM_CDDR(spec)))))) {
+            Scm_Error("Invalid export-spec; a symbol, or (rename <symbol> <symbol>) is expected, but got %S", spec);
         }
     }
-    if (!error) module->exported = syms;
+
+    (void)SCM_INTERNAL_MUTEX_LOCK(modules.mutex);
+    SCM_FOR_EACH(lp, specs) {
+        ScmObj spec = SCM_CAR(lp);
+        if (SCM_SYMBOLP(spec)) {
+            name = exported_name = SCM_SYMBOL(spec);
+        } else {
+            /* we already knew those are symbols */
+            name = SCM_SYMBOL(SCM_CADR(spec));
+            exported_name = SCM_SYMBOL(SCM_CAR(SCM_CDDR(spec)));
+        }
+        e = Scm_HashCoreSearch(SCM_HASH_TABLE_CORE(module->external),
+                               (intptr_t)exported_name, SCM_DICT_GET);
+        if (e) {
+            /* If we have e, it's already exported.  Check if
+               the previous export is for the same binding. */
+            SCM_ASSERT(SCM_DICT_VALUE(e) && SCM_GLOCP(SCM_DICT_VALUE(e)));
+            g = SCM_GLOC(SCM_DICT_VALUE(e));
+            if (!SCM_EQ(name, g->name)) {
+                /* exported_name got a different meaning. we record it to warn
+                   later, then 'unexport' the old one. */
+                overwritten = Scm_Cons(SCM_LIST3(SCM_OBJ(exported_name),
+                                                 SCM_OBJ(g->name),
+                                                 SCM_OBJ(name)),
+                                       overwritten);
+                Scm_HashCoreSearch(SCM_HASH_TABLE_CORE(module->external),
+                                   (intptr_t)exported_name, SCM_DICT_DELETE);
+                e = NULL;
+            }
+        }
+        /* we check again, for the symbol may be unexported above. */
+        if (e == NULL) {
+            /* This symbol hasn't been exported.  Either it only has an
+               internal binding, or there's no binding at all.  In the latter
+               case, we create a new binding (without value). */
+            e = Scm_HashCoreSearch(SCM_HASH_TABLE_CORE(module->internal),
+                                   (intptr_t)name, SCM_DICT_CREATE);
+            if (!e->value) {
+                g = SCM_GLOC(Scm_MakeGloc(name, module));
+                (void)SCM_DICT_SET_VALUE(e, SCM_OBJ(g));
+            }
+            Scm_HashTableSet(module->external, SCM_OBJ(exported_name),
+                             SCM_DICT_VALUE(e), 0);
+        }
+    }
     (void)SCM_INTERNAL_MUTEX_UNLOCK(modules.mutex);
-    if (error) Scm_Error("symbol required, but got %S", badsym);
-    return syms;
+
+    /* Now, if this export changes the meaning of exported symbols, we
+       warn it.  We expect this only happens at the development time, when
+       one is fiddling exports incrementally, so we just use Scm_Warn -
+       a library ready to be used shouldn't cause this warning. */
+    if (!SCM_NULLP(overwritten)) {
+        ScmObj lp;
+        SCM_FOR_EACH(lp, overwritten) {
+            ScmObj p = SCM_CAR(lp);
+            Scm_Warn("Exporting %S from %S as %S overrides the previous export of %S",
+                     SCM_CAR(SCM_CDDR(p)), SCM_OBJ(module), SCM_CAR(p),
+                     SCM_CADR(p));
+        }
+    }
+
+    return SCM_UNDEFINED;  /* we might want to return something more useful...*/
 }
 
 ScmObj Scm_ExportAll(ScmModule *module)
@@ -582,18 +641,36 @@ ScmObj Scm_ExportAll(ScmModule *module)
         module->exportAll = TRUE;
 
         /* Scan the module and mark all existing bindings as exported. */
-        Scm_HashIterInit(&iter, SCM_HASH_TABLE_CORE(module->table));
+        Scm_HashIterInit(&iter, SCM_HASH_TABLE_CORE(module->internal));
         while ((e = Scm_HashIterNext(&iter)) != NULL) {
-            ScmGloc *g = SCM_GLOC(SCM_DICT_VALUE(e));
-            if (!g->exported) {
-                g->exported = TRUE;
-                module->exported =
-                    Scm_Cons(SCM_OBJ(g->name), module->exported);
+            ScmDictEntry *ee;
+            ee = Scm_HashCoreSearch(SCM_HASH_TABLE_CORE(module->external),
+                                    e->key, SCM_DICT_CREATE);
+            if (!ee->value) {
+                SCM_DICT_SET_VALUE(ee, SCM_DICT_VALUE(e));
             }
         }
     }
     (void)SCM_INTERNAL_MUTEX_UNLOCK(modules.mutex);
     return SCM_OBJ(module);
+}
+
+/* Returns list of exported symbols.   We assume this is infrequent
+   operation, so we build the list every call.  If it becomes a problem,
+   we can cache the result. */
+ScmObj Scm_ModuleExports(ScmModule *module)
+{
+    ScmHashIter iter;
+    ScmDictEntry *e;
+    ScmObj h = SCM_NIL, t = SCM_NIL;
+    
+    (void)SCM_INTERNAL_MUTEX_LOCK(modules.mutex);
+    Scm_HashIterInit(&iter, SCM_HASH_TABLE_CORE(module->external));
+    while ((e = Scm_HashIterNext(&iter)) != NULL) {
+        SCM_APPEND1(h, t, SCM_DICT_KEY(e));
+    }
+    (void)SCM_INTERNAL_MUTEX_UNLOCK(modules.mutex);
+    return h;
 }
 
 /*----------------------------------------------------------------------
@@ -678,42 +755,19 @@ void Scm_SelectModule(ScmModule *mod)
  */
 
 /* Convert module name and pathname (mod load-path) and vice versa.
-   The default conversion is pretty straightforward, e.g.
-   util.list <=> "util/list"  etc.  However, modules and files can
-   have many-to-many mapping, and I'd like to reserve the room
-   of future extensions.   Eventually there will be some special
-   mapping table so the programmer can register exceptional mappings. */
-
+   We moved the definition in Scheme.  These are just stubs to call them. */
 ScmObj Scm_ModuleNameToPath(ScmSymbol *name)
 {
-    const ScmStringBody *b = SCM_STRING_BODY(SCM_SYMBOL_NAME(name));
-    char *buf = SCM_NEW_ATOMIC2(char *, SCM_STRING_BODY_SIZE(b)+1);
-    char *p = buf, *e = buf + SCM_STRING_BODY_SIZE(b);
-    memcpy(buf, SCM_STRING_BODY_START(b), SCM_STRING_BODY_SIZE(b));
-    while (p < e) {
-        int n = SCM_CHAR_NFOLLOWS(*p);
-        if (*p == '.') *p++ = '/';
-        else p += n+1;
-    }
-    *e = '\0';
-    return Scm_MakeString(buf, SCM_STRING_BODY_SIZE(b),
-                          SCM_STRING_BODY_LENGTH(b), 0);
+    static ScmObj module_name_to_path_proc = SCM_UNDEFINED;
+    SCM_BIND_PROC(module_name_to_path_proc, "module-name->path", Scm_GaucheModule());
+    return Scm_ApplyRec1(module_name_to_path_proc, SCM_OBJ(name));
 }
 
 ScmObj Scm_PathToModuleName(ScmString *path)
 {
-    const ScmStringBody *b = SCM_STRING_BODY(path);
-    char *buf = SCM_NEW_ATOMIC2(char *, SCM_STRING_BODY_SIZE(b)+1);
-    char *p = buf, *e = buf + SCM_STRING_BODY_SIZE(b);
-    memcpy(buf, SCM_STRING_BODY_START(b), SCM_STRING_BODY_SIZE(b));
-    while (p < e) {
-        int n = SCM_CHAR_NFOLLOWS(*p);
-        if (*p == '/') *p++ = '.';
-        else if (*p == '.') Scm_Error("bad pathname for module path: %S", path);
-        else p += n+1;
-    }
-    *e = '\0';
-    return SCM_INTERN(buf);
+    static ScmObj path_to_module_name_proc = SCM_UNDEFINED;
+    SCM_BIND_PROC(path_to_module_name_proc, "path->module-name", Scm_GaucheModule());
+    return Scm_ApplyRec1(path_to_module_name_proc, SCM_OBJ(path));
 }
 
 /*----------------------------------------------------------------------
@@ -732,7 +786,7 @@ static ScmObj module_imported(ScmObj m)
 
 static ScmObj module_exported(ScmObj m)
 {
-    return SCM_MODULE(m)->exported;
+    return Scm_ModuleExports(SCM_MODULE(m));
 }
 
 static ScmObj module_exportAll(ScmObj m)
@@ -757,7 +811,7 @@ static ScmObj module_depended(ScmObj m)
 
 static ScmObj module_table(ScmObj m)
 {
-    return SCM_OBJ(SCM_MODULE(m)->table);
+    return SCM_OBJ(SCM_MODULE(m)->internal);
 }
 
 static ScmObj module_origin(ScmObj m)

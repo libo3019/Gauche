@@ -4,32 +4,32 @@
 
 @c ----------------------------------------------------------------------
 @menu
-* Types and classes::
-* Equivalence::
-* Numbers::
-* Booleans::
-* Undefined values::
-* Pairs and Lists::
-* Symbols::
-* Keywords::
-* Identifiers::
-* Characters::
-* Character set::
-* Strings::
-* Regular expressions::
-* Vectors::
-* Hashtables::
-* Treemaps::
-* Weak pointers::
-* Procedures and continuations::
-* Lazy evaluation::
-* Exceptions::
-* Eval and repl::
-* Input and output::
-* Loading Programs::
-* Comparison and sorting::
-* System interface::
-* Development helper API::
+* Types and classes::           
+* Equivalence::                 
+* Numbers::                     
+* Booleans::                    
+* Undefined values::            
+* Pairs and Lists::             
+* Symbols::                     
+* Keywords::                    
+* Identifiers::                 
+* Characters::                  
+* Character set::               
+* Strings::                     
+* Regular expressions::         
+* Vectors::                     
+* Hashtables::                  
+* Treemaps::                    
+* Weak pointers::               
+* Procedures and continuations::  
+* Lazy evaluation::             
+* Exceptions::                  
+* Eval and repl::               
+* Input and output::            
+* Loading Programs::            
+* Comparison and sorting::      
+* System interface::            
+* Development helper API::      
 @end menu
 
 @node Types and classes, Equivalence, Core library, Core library
@@ -413,13 +413,13 @@ Gaucheは次のタイプの数値をサポートしています。
 @c COMMON
 
 @menu
-* Number classes::
-* Numerical predicates::
-* Numerical comparison::
-* Arithmetics::
-* Numerical conversions::
-* Bitwise operations::
-* Endianness::
+* Number classes::              
+* Numerical predicates::        
+* Numerical comparison::        
+* Arithmetics::                 
+* Numerical conversions::       
+* Bitwise operations::          
+* Endianness::                  
 @end menu
 
 @node Number classes, Numerical predicates, Numbers, Numbers
@@ -2083,6 +2083,17 @@ otherwise.  Convenient to coerce a value to boolean.
 @c COMMON
 @end defun
 
+@defun boolean=? a b c @dots{}
+[R7RS]
+@c EN
+Every argument must be a boolean value.  Returns @code{#t} iff all
+values are the same, @code{#f} otherwise.
+@c JP
+全ての引数は論理値でなければなりません。全ての引数が等しい場合に
+@code{#t}が、そうでなければ@code{#f}が返ります。
+@c COMMON
+@end defun
+
 @c ----------------------------------------------------------------------
 @node Undefined values, Pairs and Lists, Booleans, Core library
 @section Undefined values
@@ -2194,13 +2205,13 @@ Gaucheのコアは全ての標準のリスト手続きと、多くのScheme実�
 @c COMMON
 
 @menu
-* Pair and null class::
-* List predicates::
-* List constructors::
-* List accessors and modifiers::
-* Walking over lists::
-* Other list procedures::
-* Association lists::
+* Pair and null class::         
+* List predicates::             
+* List constructors::           
+* List accessors and modifiers::  
+* Walking over lists::          
+* Other list procedures::       
+* Association lists::           
 @end menu
 
 @node Pair and null class, List predicates, Pairs and Lists, Pairs and Lists
@@ -2620,6 +2631,38 @@ it returns @code{#f}.
 @c COMMON
 @end defun
 
+@defun length<=? x k
+@c EN
+Returns @code{#t} iff @var{x} is a list whose length is less than
+or equal to @var{k}.  This procedure only follows the list up to the
+@var{k} items, so it doesn't realize elements of lazy sequence more than
+needed (@xref{Lazy sequences}, for the lazy sequences).
+
+Dotted lists and circular lists are allowed.  (A circular list is
+treated as if it has infinite length---that is this procedure always
+returns @code{#f} for such lists.)
+@c JP
+@var{x}が長さk以下のリストであれば@code{#t}を、そうでなければ@code{#f}を返します。
+この関数は@var{k}要素までしかリストを辿らないので、特に@var{x}が遅延シーケンス
+(@ref{Lazy sequences}参照)である場合に、必要以上にリストを実体化しなくて済みます。
+
+@var{x}はドットリストや循環リストでも構いません (循環リストは無限の長さを持つと
+みなします。したがって常に@code{#f}が返ります。)
+@c COMMON
+
+@example
+(length<=? '(a b) 2)  @result{} #t
+(length<=? '(a b) 1)  @result{} #f
+(length<=? '()    0)  @result{} #t
+
+;; dotted list cases
+(length<=? 'a       0)  @result{} #t
+(length<=? '(a . b) 0)  @result{} #f
+(length<=? '(a . b) 1)  @result{} #t
+@end example
+@end defun
+
+
 @defun take x i
 @defunx drop x i
 [SRFI-1]
@@ -2840,6 +2883,22 @@ it is returned for such case.  This is an extension of Gauche.
 @var{fallback}が返されます。これはGaucheの拡張です。
 @c COMMON
 @end defun
+
+@defun list-set! list k v
+[R7RS]
+@c EN
+Modifies the @var{k}-th element of a @var{list} by @var{v}.
+It is an error unless @var{k} is an exact integer between 0 and
+one minus the length of @var{k}.  If @var{list} is immutable,
+no error is signalled but the behavior is undefined.
+@c JP
+リスト@var{list}の@var{k}番目の要素を@var{v}へと変更します。
+@var{k}が0から(- リストの長さ 1)の範囲の正確な整数でない場合は
+エラーが報告されます。@var{list}が変更不可なリストであった場合、
+エラーは報告されませんが、その後の振る舞いは不定となります。
+@c COMMON
+@end defun
+
 
 @defun last-pair list
 [SRFI-1]
@@ -3803,6 +3862,16 @@ if @var{symbol} is not a symbol.
 @c COMMON
 @end defun
 
+@defun symbol=? a b c @dots{}
+[R7RS]
+@c EN
+Every argument must be a symbol.  Returns @code{#t} iff
+every pair of arguments are @code{eq?} to each other.
+@c JP
+全ての引数はシンボルでなければなりません。引数のどの二つの組み合わせを取っても
+それが@code{eq?}である時に限り、@code{#t}が返ります。
+@c COMMON
+@end defun
 
 @defun symbol->string symbol
 [R5RS]
@@ -4605,6 +4674,9 @@ The class implements the collection protocol (@xref{Collection framework}),
 so that the standard collection methods provided in the 
 @code{gauche.collection} module can be used.
 
+An instance of @code{<char-set>} is applicable to a character,
+and works as a membership predicate; see @code{char-set-contains?} below.
+
 Further operations, such as set algebra, is defined in SRFI-14
 module (@xref{Character-set library}).
 @c JP
@@ -4614,6 +4686,10 @@ Gaucheは文字集合オブジェクトのサポートと、
 
 コレクションプロトコル (@ref{Collection framework}参照) を実装しているので、
 @code{gauche.collection}で提供される標準のコレクションメソッドが使えます。
+
+@code{<char-set>}のインスタンスは文字に関数のように適用することができ、
+その文字が文字集合に属するかどうかを判定する述語として機能します。
+下記の@code{char-set-contains?}を参照してください。
 
 文字集合に関する他の操作、例えば集合演算などは、SRFI-14モジュール
 (@ref{Character-set library}参照) で提供されています。
@@ -4756,6 +4832,24 @@ Returns true if and only if a character set object
 @c COMMON
 @end example
 @end defun
+
+@deffn {Generic application} @var{char-set} @var{char}
+@c EN
+A char-set object can be applied to a character, and it
+works just like @code{(char-set-contains? char-set char)}.
+@c JP
+文字集合オブジェクトは文字に適用されると、
+@code{(char-set-contains? char-set char)} のように振る舞います。
+@c COMMON
+
+@example
+(#[a-z] #\a) @result{} #t
+(#[a-z] #\A) @result{} #f
+
+(use gauche.collection)
+(filter #[a-z] "CharSet") @result{} (#\h #\a #\r #\e #\t)
+@end example
+@end deffn
 
 @defun char-set char @dots{}
 [SRFI-14]
@@ -4903,14 +4997,14 @@ SRFI-13については@ref{String library}を参照してください。
 @c COMMON
 
 @menu
-* String syntax::
-* String Predicates::
-* String Constructors::
-* String interpolation::
-* String Accessors & Modifiers::
-* String Comparison::
-* String utilities::
-* Incomplete strings::
+* String syntax::               
+* String Predicates::           
+* String Constructors::         
+* String interpolation::        
+* String Accessors & Modifiers::  
+* String Comparison::           
+* String utilities::            
+* Incomplete strings::          
 @end menu
 
 @node String syntax, String Predicates, Strings, Strings
@@ -5974,9 +6068,9 @@ Gaucheはまた、リテラル正規表現用の構文を備えています。
 @end example
 
 @menu
-* Regular expression syntax::
-* Using regular expressions::
-* Inspecting and assembling regular expressions::
+* Regular expression syntax::   
+* Using regular expressions::   
+* Inspecting and assembling regular expressions::  
 @end menu
 
 @node Regular expression syntax, Using regular expressions, Regular expressions, Regular expressions
@@ -6597,7 +6691,7 @@ you may want to check @code{grxmatch} in @code{gauche.generator}
 @c COMMON
 @end defun
 
-@deftp {Generic application} @var{regexp} @var{string}
+@deffn {Generic application} @var{regexp} @var{string}
 @c EN
 A regular expression object can be applied directly to the string.
 This works the same as @code{(rxmatch @var{regexp} @var{string})},
@@ -6609,7 +6703,7 @@ generic mechanism used to implement this.
 表記が短くて済みます。この機能は@ref{Applicable objects} で述べているメカニズムを
 使って実装されています。
 @c COMMON
-@end deftp
+@end deffn
 
 @c EN
 @subsubheading Accessing the match result
@@ -6770,9 +6864,9 @@ gosh> (rxmatch->string #/(\w+)@@([\w.]+)/ "foo@@example.com" 'before 2)
 @end example
 @end defun
 
-@deftp {Generic application} @var{regmatch} :optional @var{index}
-@deftpx {Generic application} @var{regmatch} @code{'before} :optional @var{index}
-@deftpx {Generic application} @var{regmatch} @code{'after} :optional @var{index}
+@deffn {Generic application} @var{regmatch} :optional @var{index}
+@deffnx {Generic application} @var{regmatch} @code{'before} :optional @var{index}
+@deffnx {Generic application} @var{regmatch} @code{'after} :optional @var{index}
 @c EN
 A regmatch object can be applied directly to the integer index,
 or a symbol @code{before} or @code{after}.
@@ -6816,7 +6910,7 @@ generic mechanism used to implement this.
   (match 'after 'integer)   @result{} ".14..."
   (match 'before 'fraction) @result{} "pi=3."
 @end example
-@end deftp
+@end deffn
 
 @defun rxmatch-num-matches match
 @defunx rxmatch-named-groups match
@@ -8556,15 +8650,15 @@ accept @code{("abc" 2)} can be a valid application syntax.
 @xref{Applicable objects}, for the details.
 
 @menu
-* Procedure class and applicability::
-* Universal accessor::
-* Combinators::
-* Optional argument parsing::
-* Procedure arity::
-* Applicable objects::
-* Continuations::
-* Multiple values::
-* Folding generated values::
+* Procedure class and applicability::  
+* Universal accessor::          
+* Combinators::                 
+* Optional argument parsing::   
+* Procedure arity::             
+* Applicable objects::          
+* Continuations::               
+* Multiple values::             
+* Folding generated values::    
 @end menu
 
 @node Procedure class and applicability, Universal accessor, Procedures and continuations, Procedures and continuations
@@ -9956,8 +10050,8 @@ internally, its element isn't calculated until it is required.
 @c COMMON
 
 @menu
-* Delay force and lazy::
-* Lazy sequences::
+* Delay force and lazy::        
+* Lazy sequences::              
 @end menu
 
 
@@ -10754,10 +10848,10 @@ SRFI-35にならって@emph{コンディション(condition)}を使います。
 @c COMMON
 
 @menu
-* Exception handling overview::
-* Signaling exceptions::
-* Handling exceptions::
-* Conditions::
+* Exception handling overview::  
+* Signaling exceptions::        
+* Handling exceptions::         
+* Conditions::                  
 @end menu
 
 @node Exception handling overview, Signaling exceptions, Exceptions, Exceptions
@@ -12517,14 +12611,14 @@ and re-invoke them afterwards.
 @c NODE 入出力
 
 @menu
-* Ports::
-* Port and threads::
-* Common port operations::
-* File ports::
-* String ports::
-* Coding-aware ports::
-* Input::
-* Output::
+* Ports::                       
+* Port and threads::            
+* Common port operations::      
+* File ports::                  
+* String ports::                
+* Coding-aware ports::          
+* Input::                       
+* Output::                      
 @end menu
 
 @node Ports, Port and threads, Input and output, Input and output
@@ -13841,9 +13935,9 @@ an input port, and when omitted, the current input port is assumed.
 @c COMMON
 
 @menu
-* Reading data::
-* Read-time constructor::
-* Input utility functions::
+* Reading data::                
+* Read-time constructor::       
+* Input utility functions::     
 @end menu
 
 @node Reading data, Read-time constructor, Input, Input
@@ -14884,11 +14978,11 @@ absolute position of the arguments, starting from 0.
 @c NODE プログラムのロード
 
 @menu
-* Loading Scheme file::
-* Loading dynamic library::
-* Require and provide::
-* Autoload::
-* Operations on libraries::
+* Loading Scheme file::         
+* Loading dynamic library::     
+* Require and provide::         
+* Autoload::                    
+* Operations on libraries::     
 @end menu
 
 @node Loading Scheme file, Loading dynamic library, Loading Programs, Loading Programs
@@ -15942,20 +16036,21 @@ Cの標準ライブラリとGaucheの手続きとの対応が示してありま�
 @c COMMON
 
 @menu
-* Program termination::
-* Environment Inquiry::
-* Filesystems::
-* Unix groups and users::
-* Locale::
-* Signal::
-* System inquiry::
-* Time::
-* Process management::
-* I/O multiplexing::
-* Miscellaneous system calls::
+* Program termination::         
+* Command-line arguments::      
+* Environment Inquiry::         
+* Filesystems::                 
+* Unix groups and users::       
+* Locale::                      
+* Signal::                      
+* System inquiry::              
+* Time::                        
+* Process management::          
+* I/O multiplexing::            
+* Miscellaneous system calls::  
 @end menu
 
-@node Program termination, Environment Inquiry, System interface, System interface
+@node Program termination, Command-line arguments, System interface, System interface
 @subsection Program termination
 @c NODE プログラムの終了
 
@@ -16205,7 +16300,81 @@ POSIXのabort()を呼びます。通常、現在のプロセスは終了され�
 @c COMMON
 @end defun
 
-@node Environment Inquiry, Filesystems, Program termination, System interface
+@node Command-line arguments, Environment Inquiry, Program termination, System interface
+@subsection Command-line arguments
+@c NODE コマンドライン引数
+
+The recommended way to get command-line arguments passed to a
+Scheme script is the argument to the @code{main} procedure
+(@xref{Writing Scheme scripts}).  For the convenience,
+there are a few ways to access to the command-line arguments
+globally.
+
+Note that a Scheme code may not always be called with a command-line
+argument---for example, an application-embedded Scheme scriptlet may
+not have the concept of command-line at all.  That's why the @code{main}
+argument is preferred, since it is an explicit interface; if @code{main}
+is called, the caller is responsible to pass in something.
+
+That said, here are how to access the command-line arguments:
+
+@deffn {Parameter} command-line
+[R7RS+]
+When called without arguments, it returns a list of command-line arguments,
+including the program name in the first element, as a list of strings.
+
+When Gauche is used as an embedded language, it is application's discretion
+to set up this parameter.  If the application does nothing, this parameter
+will have an empty list.  When you use this parameter in the library
+you have to deal with that situation.
+
+When called with one argument, a list of string, it will become the
+new value of the parameter.  You can use @code{parameterize} to
+switch the value of @code{command-line} dynamically
+(@xref{Parameters}).  Note that R7RS only defines zero-argument
+@code{command-line}.
+@end deffn
+
+@defvar *program-name*
+@defvarx *argv*
+@c EN
+These variables are bound to the program name and the list of command-line
+arguments, respectively.  In Gauche scripts that are invoked by @code{gosh}
+command, @code{*program-name*} is usually the name of the script, as
+given to @code{gosh}.  When @code{gosh} is invoked interactively,
+@code{*program-name*} is @code{gosh} itself.
+
+These variables exist in @code{user} module.
+
+They are mainly kept for the backward compatibility.
+These names are compatible to STk, but other Scheme implementation uses
+different conventions.  The @code{command-line} parameter above is
+preferred.
+
+When Gauche is used as an embedded language, it's the host application's
+discretion to set up these variables.  Generally, you can't count on
+those variables to exist.  That's another reason you should avoid
+using them.
+@c JP
+これらの変数はそれぞれ、プログラム名および、コマンドライン引数のリストに束縛されます。
+@code{gosh}を使ってGaucheスクリプトを実行しているなら、@code{*program-name*}は
+(@code{gosh}に与えられたとおりの) スクリプト名になっています。@code{gosh}が
+インタラクティブREPLとして起動された場合は@code{*program-name*}は@code{gosh}自身です。
+
+これらの変数は@code{user}モジュールにあります。
+
+これは主として互換性のためだけに残されています。STkと互換な名前ですが、
+他のScheme実装へはポータブルではありません。上の@code{command-line}パラメータの
+方がお勧めです。
+
+Gaucheが埋め込み言語として使われている場合、これらの変数を設定するかどうかは
+ホストアプリケーションに任されます。一般には、これらの変数が必ず存在している
+とは限りません。これもまた、他の方法を使うべき理由です。
+@c COMMON
+@end defvar
+
+
+@node Environment Inquiry, Filesystems, Command-line arguments, System interface
 @subsection Environment Inquiry
 @c NODE 環境の問い合わせ
 
@@ -16359,11 +16528,11 @@ on top of the procedures described here.
 @c COMMON
 
 @menu
-* Directories::
-* Directory manipulation::
-* Pathnames::
-* File stats::
-* Other file operations::
+* Directories::                 
+* Directory manipulation::      
+* Pathnames::                   
+* File stats::                  
+* Other file operations::       
 @end menu
 
 @node Directories, Directory manipulation, Filesystems, Filesystems
@@ -16691,7 +16860,7 @@ is the same as explained above.
 じです。
 @c COMMON
 
-@c EN
+*@c EN
 For each pathname that matches @var{pattern}, @code{glob-fold}
 calls @var{proc} with the pathname and a seed value.  The initial
 seed value is @var{seed}, and the value @var{proc} returns becomes
@@ -16826,6 +16995,16 @@ An error is signaled otherwise.
 @var{pathname}はディレクトリであってはなりません。
 もし消去に成功したら@code{#t}が、@var{pathname}が存在しなければ@code{#f}が返されます。
 他の場合はエラーが通知されます。
+@c COMMON
+
+@c EN
+There are similar procedures, @code{delete-file}/@code{remove-file}
+in @code{file.util} module, while they raises an error when the
+named pathname doesn't exist (@xref{File operations}).
+@c JP
+@code{file.util}モジュールに似た手続き@code{delete-file}/@code{remove-file}が
+ありますが、そちらはファイルが存在しない場合にエラーを投げます
+(@ref{File operations}参照)。
 @c COMMON
 @end defun
 
@@ -17816,11 +17995,11 @@ Windowsネイティブ環境では、@code{sys-kill}の限定的なサポート�
 @c COMMON
 
 @menu
-* Signals and signal sets::
-* Sending signals::
-* Handling signals::
-* Masking and waiting signals::
-* Signals and threads::
+* Signals and signal sets::     
+* Sending signals::             
+* Handling signals::            
+* Masking and waiting signals::  
+* Signals and threads::         
 @end menu
 
 @node Signals and signal sets, Sending signals, Signal, Signal
@@ -20144,8 +20323,8 @@ Gauche には開発者がプログラムを解析するための基本的な組�
 @c COMMON
 
 @menu
-* Debugging aid::
-* Profiler API::
+* Debugging aid::               
+* Profiler API::                
 @end menu
 
 @node Debugging aid, Profiler API, Development helper API, Development helper API

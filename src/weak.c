@@ -1,7 +1,7 @@
 /*
  * weak.c - weak vectors and tables
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@
 
 static void weakvector_print(ScmObj obj, ScmPort *port, ScmWriteContext *ctx)
 {
-    int i;
+    ScmSmallInt i;
     ScmWeakVector *v = SCM_WEAK_VECTOR(obj);
     ScmObj *ptrs = (ScmObj*)v->pointers;
     Scm_Printf(port, "#,(<weak-vector> %d", v->size);
@@ -63,7 +63,7 @@ static void weakvector_print(ScmObj obj, ScmPort *port, ScmWriteContext *ctx)
 
 static void weakvector_finalize(ScmObj obj, void *data)
 {
-    int i;
+    ScmSmallInt i;
     ScmWeakVector *v = SCM_WEAK_VECTOR(obj);
     ScmObj *p = (ScmObj*)v->pointers;
     for (i=0; i<v->size; i++) {
@@ -78,9 +78,9 @@ SCM_DEFINE_BUILTIN_CLASS(Scm_WeakVectorClass, weakvector_print,
                          NULL, NULL, NULL,
                          SCM_CLASS_SEQUENCE_CPL);
 
-ScmObj Scm_MakeWeakVector(int size)
+ScmObj Scm_MakeWeakVector(ScmSmallInt size)
 {
-    int i;
+    ScmSmallInt i;
     ScmObj *p;
     ScmWeakVector *v = SCM_NEW(ScmWeakVector);
 
@@ -95,7 +95,7 @@ ScmObj Scm_MakeWeakVector(int size)
     return SCM_OBJ(v);
 }
 
-ScmObj Scm_WeakVectorRef(ScmWeakVector *v, int index, ScmObj fallback)
+ScmObj Scm_WeakVectorRef(ScmWeakVector *v, ScmSmallInt index, ScmObj fallback)
 {
     ScmObj *p;
     if (index < 0 || index >= v->size) {
@@ -114,7 +114,7 @@ ScmObj Scm_WeakVectorRef(ScmWeakVector *v, int index, ScmObj fallback)
     }
 }
 
-ScmObj Scm_WeakVectorSet(ScmWeakVector *v, int index, ScmObj value)
+ScmObj Scm_WeakVectorSet(ScmWeakVector *v, ScmSmallInt index, ScmObj value)
 {
     ScmObj *p;
     if (index < 0 || index >= v->size) {
@@ -254,11 +254,9 @@ static u_long weak_key_hash(const ScmHashCore *hc, intptr_t key)
         /* There IS a small possibility that the real key has already been
            GCed.  We return an arbitrary value (0 here); the entry won't
            match anyway. */
-        fprintf(stderr, "gong!\n");
         return 0;
     } else {
         u_long k= wh->hashfn(hc, realkey);
-        Scm_Printf(SCM_CURERR, "%Hciuang %ul %S\n", k, realkey);
         return k;
     }
 }
@@ -271,7 +269,6 @@ static int weak_key_compare(const ScmHashCore *hc, intptr_t key,
     ScmWeakBox *box = (ScmWeakBox *)entrykey;
     intptr_t realkey = (intptr_t)Scm_WeakBoxRef(box);
     if (Scm_WeakBoxEmptyP(box)) {
-        fprintf(stderr, "gang!\n");
         return FALSE;
     } else {
         return wh->cmpfn(hc, key, realkey);

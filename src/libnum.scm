@@ -1,7 +1,7 @@
 ;;;
 ;;; libnum.stub - builtin number libraries
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -340,11 +340,10 @@
 
 (define-cproc %log (x) ::<number> :fast-flonum :constant
   (unless (SCM_REALP x) (SCM_TYPE_ERROR x "real number"))
-  (if (< (Scm_Sign x) 0)
-    (result (Scm_MakeComplex (log (- (Scm_GetDouble x))) M_PI))
-    ;; NB: I intentionally delegate handling of the case x==0.0 to the
-    ;; system log() function.  Most systems should yield NaN or Inf.
-    (result (Scm_VMReturnFlonum (log (Scm_GetDouble x))))))
+  (let* ([d::double (Scm_GetDouble x)])
+    (if (< (Scm_FlonumSign d) 0)
+      (result (Scm_MakeComplex (log (- (Scm_GetDouble x))) M_PI))
+      (result (Scm_VMReturnFlonum (log (Scm_GetDouble x)))))))
 
 (define-cproc %sin (x::<real>) ::<real> :fast-flonum :constant sin)
 (define-cproc %cos (x::<real>) ::<real> :fast-flonum :constant cos)

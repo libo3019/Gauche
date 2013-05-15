@@ -1,7 +1,7 @@
 ;;;
 ;;; util/list.scm - more list library
 ;;;
-;;;  Copyright (c) 2003-2012  Shiro Kawai  <shiro@acm.org>
+;;;  Copyright (c) 2003-2013  Shiro Kawai  <shiro@acm.org>
 ;;;  Copyright(C) 2003 by Alex Shinn (foof@synthcode.com)
 ;;;
 ;;;  Permission to use, copy, modify, distribute this software and
@@ -47,8 +47,8 @@
 (define rassq-ref   (with-module gauche rassq-ref))   ;liblist
 (define rassv-ref   (with-module gauche rassv-ref))   ;liblist
 (define assoc-set!  (with-module gauche assoc-set!))  ;liblist
-(define assq-set!   (with-module gauche assoc-set!))  ;liblist
-(define assv-set!   (with-module gauche assoc-set!))  ;liblist
+(define assq-set!   (with-module gauche assq-set!))   ;liblist
+(define assv-set!   (with-module gauche assv-set!))   ;liblist
 
 (define alist->hash-table (with-module gauche alist->hash-table)) ;libdict
 (define hash-table->alist (with-module gauche hash-table->alist)) ;libdict

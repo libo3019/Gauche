@@ -1,7 +1,7 @@
 ;;;
 ;;; liblist.scm - builtin list procedures
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -116,13 +116,25 @@
   (let* ([len::long (Scm_Length list)])
     (when (< len 0) (Scm_Error "bad list: %S" list))
     (result len)))
+(define-cproc length<=? (list k::<fixnum>) ::<boolean> :constant
+  (result TRUE)
+  (dolist [_ list] (when (<= (post-- k) 0) (result FALSE) (break))))
 
 (define-cproc append (:rest lists) (inliner APPEND) Scm_Append)
 (define-cproc reverse (list::<list> :optional (tail ())) Scm_Reverse2)
 
 (define-cproc list-tail (list k::<fixnum> :optional fallback) :constant
   Scm_ListTail)
+;;We need to define list-set! as cproc in order to use it in the setter clause
+;;of list-ref.  This limitation of cgen.stub should be removed in future.
+;;(define (list-set! lis k v) (set-car! (list-tail lis k) v))
+(define-cproc list-set! (lis k::<fixnum> v) ::<void>
+  (let* ([p (Scm_ListTail lis k SCM_FALSE)])
+    (if (SCM_PAIRP p)
+      (SCM_SET_CAR p v)
+      (Scm_Error "list-set!: index out of bound: %d" k))))
 (define-cproc list-ref (list k::<fixnum> :optional fallback) :constant
+  (setter list-set!)
   Scm_ListRef)
 
 (define-cproc memq (obj list::<list>) :constant (inliner MEMQ) Scm_Memq)
@@ -535,13 +547,37 @@
           [(null? lis) '()]
           [else (loop (+ i 1) (cdr lis))])))
 
+(with-module gauche.internal
+  ;; A tolerant version of list-tail.  If LIS is shorter than K, returns
+  ;; (- k (length lis)) as the second value.
+  (define (%list-tail* lis k)
+    (let loop ([lis lis] [k k])
+      (cond [(<= k 0) (values lis 0)]
+            [(null? lis) (values lis k)]
+            [else (loop (cdr lis) (- k 1))])))
+  )
+
 (define (take-right* lis k :optional (fill? #f) (filler #f))
-  (when (or (not (integer? k)) (negative? k))
-    (error "index must be non-negative integer" k))
-  (let1 len (length lis)
-    (cond [(<= k len) (drop lis (- len k))]
-          [fill? (append! (make-list (- k len) filler) lis)]
-          [else lis])))
+  (when (or (not (integer? k)) (negative? k) (inexact? k))
+    (error "index must be non-negative exact integer" k))
+  ;; NB: This procedure can be used to take the last K elements of
+  ;; a huge lazy list.  (Not so much in take-right, with which you need
+  ;; to know the length of list is greater than K beforehand.)
+  ;; The naive implementation (drop lis (- (length lis) k)) would require
+  ;; to realize entire list on memory, which we want to avoid.
+  ;; We overwrite LIS and TAIL in each iteration instead of rebinding it,
+  ;; in order to release reference to the head of list.
+  (receive (tail j) ((with-module gauche.internal %list-tail*) lis k)
+    (if (= j 0)
+      (let loop ()
+        (if (pair? tail)
+          (begin (set! lis (cdr lis))
+                 (set! tail (cdr tail))
+                 (loop))
+          lis))
+      (if fill?
+        (append! (make-list j filler) lis)
+        lis))))
 
 (define (drop-right* lis k)
   (let1 len (length lis)
@@ -551,12 +587,12 @@
 (define (slices lis k . args)
   (unless (and (integer? k) (positive? k))
     (error "index must be positive integer" k))
-  (let loop ((lis lis)
-             (r '()))
+  (let loop ([lis lis]
+             [r '()])
     (if (null? lis)
-        (reverse! r)
-        (receive (h t) (apply split-at* lis k args)
-          (loop t (cons h r))))))
+      (reverse! r)
+      (receive (h t) (apply split-at* lis k args)
+        (loop t (cons h r))))))
 
 ;; intersperse - insert ITEM between elements in the list.
 ;; (the order of arguments is taken from Haskell's intersperse)

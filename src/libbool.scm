@@ -1,7 +1,7 @@
 ;;;
 ;;; libbool.scm - builtin boolean/comparison procedures
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -61,6 +61,14 @@
 ;; a convenient coercer
 (define-cproc boolean (obj) ::<boolean> :constant
   (result (not (SCM_FALSEP obj))))
+
+;; R7RS
+(define (boolean=? a b . args)
+  (if-let1 z (find ($ not $ boolean? $) (list* a b args))
+    (error "boolean value required, but got:" z))
+  (if a
+    (and b (every identity args))
+    (and (not b) (every not args))))
 
 ;;
 ;; Generic comparison

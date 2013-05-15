@@ -1,7 +1,7 @@
 /*
  * gauche.h - Gauche scheme system header
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  * 
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -41,6 +41,10 @@
    instances. */
 #include <gauche/config.h>
 #include <gauche/config_threads.h>
+
+#if     GAUCHE_API_0_95         /* A provisional API towards 1.0 */
+#define GAUCHE_API_0_9   0
+#endif  /*GAUCHE_API_0_95*/
 
 #ifndef GAUCHE_API_0_9
 #define GAUCHE_API_0_9   1      /* 0.9 API */
@@ -299,6 +303,8 @@ SCM_EXTERN int Scm_EqualM(ScmObj x, ScmObj y, int mode);
 #define SCM_MAKE_INT(obj)    SCM_OBJ(((intptr_t)(obj) << 2) + 1)
 
 #define SCM_UINTP(obj)       (SCM_INTP(obj)&&((signed long int)SCM_WORD(obj)>=0))
+typedef long ScmSmallInt;    /* C integer type corresponds to Scheme fixnum
+                                See SCM_SMALL_* macros in gauche/number.h */
 
 /*
  * FLONUM
@@ -1097,7 +1103,7 @@ SCM_EXTERN ScmObj Scm_Cddr(ScmObj obj);
 
 SCM_EXTERN int    Scm_Length(ScmObj obj);
 SCM_EXTERN ScmObj Scm_CopyList(ScmObj list);
-SCM_EXTERN ScmObj Scm_MakeList(int len, ScmObj fill);
+SCM_EXTERN ScmObj Scm_MakeList(ScmSmallInt len, ScmObj fill);
 SCM_EXTERN ScmObj Scm_Append2X(ScmObj list, ScmObj obj);
 SCM_EXTERN ScmObj Scm_Append2(ScmObj list, ScmObj obj);
 SCM_EXTERN ScmObj Scm_Append(ScmObj args);
@@ -1105,8 +1111,8 @@ SCM_EXTERN ScmObj Scm_ReverseX(ScmObj list);
 SCM_EXTERN ScmObj Scm_Reverse(ScmObj list);
 SCM_EXTERN ScmObj Scm_Reverse2X(ScmObj list, ScmObj tail);
 SCM_EXTERN ScmObj Scm_Reverse2(ScmObj list, ScmObj tail);
-SCM_EXTERN ScmObj Scm_ListTail(ScmObj list, int i, ScmObj fallback);
-SCM_EXTERN ScmObj Scm_ListRef(ScmObj list, int i, ScmObj fallback);
+SCM_EXTERN ScmObj Scm_ListTail(ScmObj list, ScmSmallInt i, ScmObj fallback);
+SCM_EXTERN ScmObj Scm_ListRef(ScmObj list, ScmSmallInt i, ScmObj fallback);
 SCM_EXTERN ScmObj Scm_LastPair(ScmObj list);
 
 SCM_EXTERN ScmObj Scm_Memq(ScmObj obj, ScmObj list);
@@ -1179,44 +1185,7 @@ typedef enum {
  * WRITE
  */
 
-struct ScmWriteContextRec {
-    short mode;                 /* print mode */
-    short flags;                /* internal */
-    int limit;                  /* internal */
-    int ncirc;                  /* internal */
-    ScmHashTable *table;        /* internal */
-    ScmObj obj;                 /* internal */
-};
-
-/* Print mode flags */
-enum {
-    SCM_WRITE_WRITE = 0,        /* write mode   */
-    SCM_WRITE_DISPLAY = 1,      /* display mode */
-    SCM_WRITE_SHARED = 2,       /* write/ss mode   */
-    SCM_WRITE_WALK = 3,         /* this is a special mode in write/ss */
-    SCM_WRITE_MODE_MASK = 0x3,
-
-    SCM_WRITE_CASE_FOLD = 4,    /* case-fold mode.  need to escape capital
-                                   letters. */
-    SCM_WRITE_CASE_NOFOLD = 8,  /* case-sensitive mode.  no need to escape
-                                   capital letters */
-    SCM_WRITE_CASE_MASK = 0x0c
-};
-
-#define SCM_WRITE_MODE(ctx)   ((ctx)->mode & SCM_WRITE_MODE_MASK)
-#define SCM_WRITE_CASE(ctx)   ((ctx)->mode & SCM_WRITE_CASE_MASK)
-
-SCM_EXTERN void Scm_Write(ScmObj obj, ScmObj port, int mode);
-SCM_EXTERN int Scm_WriteCircular(ScmObj obj, ScmObj port, int mode, int width);
-SCM_EXTERN int Scm_WriteLimited(ScmObj obj, ScmObj port, int mode, int width);
-SCM_EXTERN void Scm_Format(ScmPort *port, ScmString *fmt, ScmObj args, int ss);
-SCM_EXTERN void Scm_Printf(ScmPort *port, const char *fmt, ...);
-SCM_EXTERN void Scm_PrintfShared(ScmPort *port, const char *fmt, ...);
-SCM_EXTERN void Scm_Vprintf(ScmPort *port, const char *fmt, va_list args,
-                            int sharedp);
-SCM_EXTERN ScmObj Scm_Sprintf(const char *fmt, ...);
-SCM_EXTERN ScmObj Scm_SprintfShared(const char *fmt, ...);
-SCM_EXTERN ScmObj Scm_Vsprintf(const char *fmt, va_list args, int sharedp);
+#include <gauche/writer.h>
 
 /*---------------------------------------------------------
  * READ
@@ -1810,6 +1779,7 @@ SCM_EXTERN void Scm_Cleanup(void);
 SCM_EXTERN void Scm_Exit(int code);
 SCM_EXTERN void Scm_Abort(const char *msg);
 SCM_EXTERN void Scm_Panic(const char *msg, ...);
+SCM_EXTERN ScmObj Scm_InitCommandLine(int argc, const char *argv[]);
 
 SCM_EXTERN void Scm_SimpleMain(int argc, const char *argv[],
                                const char *script, u_long flags);

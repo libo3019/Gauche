@@ -1,7 +1,7 @@
 ;;;
 ;;; interactive.scm - useful stuff in the interactive session
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -197,6 +197,20 @@
 
 ;; See (describe <symbol>) above
 (autoload gauche.modutil describe-symbol-bindings)
+
+;; Kludge - if gosh is invoked with R7RS mode, import r7rs-small libraries
+;; into use module.  There should be better way to detect whether we started
+;; with r7rs mode.
+;; TODO: make *1 etc. avaiable on R7RS REPL as well.
+(when (memq (find-module 'r7rs)
+            (and-let* ([u (find-module 'user)])
+              (module-precedence-list u)))
+  (eval '(import (scheme base) (scheme case-lambda) (scheme char)
+                 (scheme complex) (scheme cxr) (scheme eval)
+                 (scheme file) (scheme inexact) (scheme lazy)
+                 (scheme load) (scheme process-context) (scheme read)
+                 (scheme repl) (scheme time) (scheme write))
+        (find-module 'user)))
 
 ;; For convenience
 (let ((dotfile (sys-normalize-pathname "~/.gaucherc" :expand #t)))

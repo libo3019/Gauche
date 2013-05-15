@@ -1,7 +1,7 @@
 ;;;
 ;;; util.sparse - sparse data structures
 ;;;
-;;;   Copyright (c) 2007-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2007-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -136,14 +136,15 @@
  (define-cproc sparse-table-num-entries (st::<sparse-table>) ::<ulong>
    (result (-> st numEntries)))
 
+ (define-cproc sparse-table-set! (st::<sparse-table> key value)
+   (result (SparseTableSet st key value 0)))
+
  (define-cproc sparse-table-ref (st::<sparse-table> key :optional fallback)
+   (setter sparse-table-set!)
    (let* ([r (SparseTableRef st key fallback)])
      (when (SCM_UNBOUNDP r)
        (Scm_Error "%S doesn't have an entry for key %S" (SCM_OBJ st) key))
      (result r)))
-
- (define-cproc sparse-table-set! (st::<sparse-table> key value)
-   (result (SparseTableSet st key value 0)))
 
  (define-cproc sparse-table-exists? (st::<sparse-table> key) ::<boolean>
    (let* ([r (SparseTableRef st key SCM_UNBOUND)])
@@ -217,8 +218,13 @@
  (define-cproc sparse-vector-num-entries (sv::<sparse-vector>) ::<ulong>
    (result (-> sv numEntries)))
 
+ (define-cproc sparse-vector-set!
+   (sv::<sparse-vector> index::<ulong> value) ::<void>
+   SparseVectorSet)
+
  (define-cproc sparse-vector-ref
    (sv::<sparse-vector> index::<ulong> :optional fallback)
+   (setter sparse-vector-set!)
    (let* ([r (SparseVectorRef sv index fallback)])
      (when (SCM_UNBOUNDP r)
        (Scm_Error "%S doesn't have an entry at index %lu" (SCM_OBJ sv) index))
@@ -228,10 +234,6 @@
    (sv::<sparse-vector> index::<ulong>) ::<boolean>
    (let* ([r (SparseVectorRef sv index SCM_UNBOUND)])
      (result (not (SCM_UNBOUNDP r)))))
-
- (define-cproc sparse-vector-set!
-   (sv::<sparse-vector> index::<ulong> value) ::<void>
-   SparseVectorSet)
 
  (define-cproc sparse-vector-delete! (sv::<sparse-vector> index::<ulong>)
    ::<boolean>
@@ -273,20 +275,30 @@
 ;; dictionary protocol
 ;;
 
-(define-method dict-get ((dict <sparse-table>) key . maybe-default)
-  (if (null? maybe-default)
-    (sparse-table-ref dict key)
-    (sparse-table-ref dict key (car maybe-default))))
+(define-dict-interface <sparse-table>
+  :get       sparse-table-ref
+  :put!      sparse-table-set!
+  :delete!   sparse-table-delete!
+  :exists?   sparse-table-exists?
+  :fold      sparse-table-fold
+  :for-each  sparse-table-for-each
+  :map       sparse-table-map
+  :keys      sparse-table-keys
+  :values    sparse-table-values
+  :pop!      sparse-table-pop!
+  :push!     sparse-table-push!
+  :update!   sparse-table-update!)
 
-(define-method dict-put! ((dict <sparse-table>) key val)
-  (sparse-table-set! dict key val))
-
-(define-method dict-delete! ((dict <sparse-table>) key)
-  (sparse-table-delete! dict key))
-
-(define-method dict-exists? ((dict <sparse-table>) key)
-  (sparse-table-exists? dict key))
-
-(define-method dict-fold ((dict <sparse-table>) proc seed)
-  (sparse-table-fold dict proc seed))
-
+(define-dict-interface <sparse-vector-base>
+  :get       sparse-vector-ref
+  :put!      sparse-vector-set!
+  :delete!   sparse-vector-delete!
+  :exists?   sparse-vector-exists?
+  :fold      sparse-vector-fold
+  :for-each  sparse-vector-for-each
+  :map       sparse-vector-map
+  :keys      sparse-vector-keys
+  :values    sparse-vector-values
+  :pop!      sparse-vector-pop!
+  :push!     sparse-vector-push!
+  :update!   sparse-vector-update!)

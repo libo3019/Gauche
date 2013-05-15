@@ -76,6 +76,9 @@
           expt-mod gamma lgamma
           real-valued? rational-valued? integer-valued?
           div-and-mod div mod div0-and-mod0 div0 mod0
+          floor/ floor-quotient floor-remainder
+          truncate/ truncate-quotient truncate-remainder
+          square
           nearly=?)
 
 (autoload "gauche/redefutil"
@@ -186,3 +189,6 @@
                           &i/o-read-error &i/o-write-error &i/o-closed-error
                           &read-error)
 
+;; Autoloading r7rs allows Gauche-native programs to load R7RS library
+;; seamlessly.
+(autoload r7rs (:macro define-library))

@@ -1,3 +1,207 @@
+2013-05-11  Shiro Kawai  <shiro@acm.org>
+
+	* ext/net/net.c: Plugged resource (fd) leak on Windows.  We need to
+	  close fds opened by _open_osfhandle, but the trick is that we only
+	  can do it at the time when the socket is closed.
+
+	* src/number.c (Scm_FloatSign, print_double, scm_div): Basic support
+	  for negative inexact zero.  We actually have the representation of
+	  -0.0 internally, but didn't have printer honor it.  Most calculations
+	  just works because libc does the job.  However, we need to
+	  distinguish positive-zero imaginary part and negative-zero imaginary
+	  part, which requires some surgery since we implicitly coerce complex
+	  numbers with zero imaginary part to real numbers.
+	* src/libnum.scm (%log): Likewise.  (log 0.0) ==> -inf.0 but
+	  (log -0.0) ==> -inf.0+3.141592653589793i.
+
+2013-05-10  Shiro Kawai  <shiro@acm.org>
+
+	* lib/gauche/interactive.scm: Imports R7RS-small standard libraries
+	  when gosh is invoked in interactive r7rs mode, so that they are
+	  available in REPL.
+
+2013-05-06  Shiro Kawai  <shiro@acm.org>
+
+	* src/read.c (read_sharp_word): Support #true and #false.  This
+	  also changes how the #-word is delimited: #t and #f used to delimit
+	  themselves (except #f8, #f16 and #f32), but now we read a word
+	  then match the token.  So, #f.1 used to be read as #f and 0.1,
+	  but now it raises an error saying "invalid #-token: #f.1".
+	  I don't think this causes a problem in existing code, but there
+	  may be a datafile that relies on the old behavor; we'll watch.
+	  Note that this isn't fully R7RS compatible yet.  The way R7RS
+	  delimits tokens is different (e.g. we read "#false#false" as two
+	  boolean falses, but iiuc, R7RS reader should read it as one token
+	  and raise an error of invalid token.)
+	  This also changes how the tokens with hash signs are read;
+	  ".#" used to be read as a symbol, but now it is an error.
+	  See the comment in 'Symbols and Numbers' section of the code.
+	  Again, I doubt it causes any problem in existing code; and I worry
+	  less about datafiles, since when such weird symbols are written,
+	  it is |-escaped, so it can read back with the current reader.
+
+2013-05-05  Shiro Kawai  <shiro@acm.org>
+
+	* src/libsym.scm (symbol=?): Added for R7RS.
+	* src/libbool.scm (boolean=?): Added for R7RS.
+
+	* src/liblist.scm (list-set!): Make it built-in.
+
+	* libsrc/file/util.scm (delete-file, remove-file): Added for R7RS
+	  compatibility.
+	* lib/r7rs.scm (delete-file): Changed accordingly.
+
+2013-05-04  Shiro Kawai  <shiro@acm.org>
+
+	* src/gauche/writer.h: Splitted writer related decls.
+
+	* src/main.c (main): Experimentally support -r7 option to start up
+	  gosh with R7RS environment as default.  Currently this is mainly
+	  for the convenience of developing R7RS compatibility code.
+
+	* lib/gauche/numerical.scm (floor/ etc.): Added R7RS integer division
+	  operators.
+	  (square): ditto.
+	* autoloads.scm: Changed accordingly.
+
+	* lib/r7rs.scm (define-library): Support R7RS define-library.
+	* autoloads.scm (define-library): Autoload define-library so that
+	  Gauche native code can use R7RS library seamlessly.
+
+2013-05-03  Shiro Kawai  <shiro@acm.org>
+
+	* src/libmod.scm, src/module.c (module-name->path, path->module-name):
+	  Moved definition of these two from C to Scheme, and supports
+	  module name components to have dot in it.  It won't so much useful
+	  from Gauche, but R7RS library name may have (foo.bar baz) and
+	  we need to map it to Gauche's module name.
+
+	* lib/r7rs.scm, lib/scheme/base.scm: Start adding R7RS compatibility
+	  stuff.
+
+	* src/load.c (Scm_Require): Make sure we set the current module
+	  to #<module gauche> when actually loading the file.  This was
+	  never explicitly stateted, but we always assumed so.  It doesn't
+	  make sense to use caller's current module, since the caller
+	  doesn't know if the file will actually be loaded or not, so
+	  there's no guarantee that the current module is in effect.
+	  This change might cause an incompatibility in the code that
+	  took advantage of the old require behavior, but I doubt such
+	  code exists.
+	  (Scm_ResolveAutoload): The exception of above 'require' spec
+	  is autoloading; we do need to load the file into a specific
+	  module.
+
+2013-05-01  Shiro Kawai  <shiro@acm.org>
+
+	* src/libsys.scm: Feature identifiers gauche.sys.setenv,
+	  gauche.sys.unsetenv, gauche.sys.clearenv, gauche.sys.sigwait,
+	  and gauche.sysgetloadavg weren't defined properly.
+
+2013-04-28  Shiro Kawai  <shiro@acm.org>
+
+	* src/liblist.scm (take-right*): When the list is long and k is
+	  small, try not to keep entire list on memory - would help when
+	  taking the last k elements of a lazy sequence.  Not an ideal
+	  solution, but would work for the time being.
+
+2013-04-27  shiro  <shiro@acm.org>
+
+	* src/liblist.scm (length<=?): Added.
+
+2013-04-25  Shiro Kawai  <shiro@acm.org>
+
+	* src/module.c (Scm_ExportSymbols): Fixed a bug that searched
+	  external table with internal name (patch from enami).
+	  Also added a check to see if 'export' overrides the previous exports.
+
+2013-04-24  Shiro Kawai  <shiro@acm.org>
+
+	* ext/sparse/sparse.scm: Added generalized setter to
+	  sparse-table-ref and sparse-vector-ref.
+
+2013-04-23  Shiro Kawai  <shiro@acm.org>
+
+	* src/gauche/module.h (ScmModule), src/gauche/gloc.h (ScmGloc),
+	  src/module.c, src/gloc.c: Changed the way exported bindings
+	  are handled.  Instead of having a flag in GLOC, we now have
+	  to hashtables in ScmModule, one for internal (all) bindings and
+	  another for exported bindings.  This allows us to implement
+	  export-time renaming easily.
+	  This changes the struct layout of ScmModule and ScmGloc, and
+	  IT MIGHT BREAK ABI COMPATIBILITY, although both of those structs
+	  are always allocated at runtime and accessed via API from
+	  outside of libgauche, I expect it won't affect much.
+	  The 'exported' list in ScmModule is dropped; if you want a
+	  list of exported symbols, call Scm_ModuleExports() to calculate
+	  the list.
+	  NB: Scm_ExportSymbols no longer returns a list of exported symbols.
+	* src/module.c (Scm_ExportSymbols): Allow export-time renaming,
+	  as specified in R[67]RS.
+
+2013-04-21  Shiro Kawai  <shiro@acm.org>
+
+	* src/compile.scm: Added include-ci support, and allows multiple
+	  files with include/include-ci, as R7RS.
+	* doc/coresyn.texi: Added docs for include and include-ci.
+
+2013-04-19  Shiro Kawai  <shiro@acm.org>
+
+	* src/libobj.scm (object-apply): Made char-set applicable.
+
+2013-04-18  Shiro Kawai  <shiro@acm.org>
+
+	* lib/dbm.scm (call-with-iterator, coerce-to): Added missing
+	  collection framework support to dbm.
+
+2013-04-17  Shiro Kawai  <shiro@acm.org>
+
+	* src/libeval.scm (command-line): Added R7RS-ish command-line access
+	  procedure.  This is better than old *program-name*/*argv* variables.
+	* src/core.c (Scm_InitCommandLine): A convenience C API to initialize
+	  command-line, *program-name* and *argv* from C code.
+	* src/main.c: Changed to use Scm_InitCommandLine.
+	* lib/gauche/logger.scm: Changed accordingly.
+
+2013-04-16  Shiro Kawai  <shiro@acm.org>
+
+	* src/regexp.c (regexp-compile): Fixed a bug that failed to handle
+	  named subgroups and unordered group counts in the input AST.
+	  The named subgroups are handled in parser, so the rxs created by
+	  regexp-compile from AST didn't have the info.  Now rc_setup_context
+	  is fixed to deal with named subgroups.  There was another bug
+	  in rc_setup_context that made group ordering not to work.
+
+2013-04-15  Shiro Kawai  <shiro@acm.org>
+
+	* lib/control/thread-pool.scm (terminate-all!): Fixed a timing hazard
+	  that could cause terminate-all! to throw a 'queue full' exception.
+	* test/control.scm: Adjusted pool termination test for robustness.
+
+	* lib/gauche/dictionary.scm: Revised.  Provided fallback methods
+	  for optional interface.  A new macro define-dict-interface is
+	  provided to define dictionary API concisely.
+	* lib/dbm.scm, ext/sparse/sparse.scm: Use define-dict-interface
+	  to define dict interfaces.
+	* lib/util/trie.scm: Added dictionary interface to <trie>.
+
+2013-04-12  Shiro Kawai  <shiro@acm.org>
+
+	* src/*, lib/gauche/cgen/type.scm (ScmSmallInt): Bulk fix to avoid
+	  integer overflow in indexes that accepts <fixnum>.  We used to
+	  map <fixnum> to int, but that could cause overflow on 64bit
+	  architecture.  We changed the mapping to ScmSmallInt, and changed
+	  vector and string APIs to use it instead of int for indexes.
+	  (NB: We still have 2G limit on string size & length for ABI
+	  compatibility.  Check codes are inserted to detect out-of-range
+	  case.  See src/string.c for the details.)
+	  POSSIBLY INCOMPATIBLE CHANGE: We also enhanched
+	  Scm_GetInteger()-family API to cover 8-,16-,32-bit integers, and
+	  made it throws an error when the input is out-of-range.  The old
+	  Scm_GetInteger[U][64]() API clamped the out-of-range arg.  We think
+	  clamping is unsafe and shouldn't be the default behavior.  This
+	  can break code that relies on the clamping behavior.
+
 2013-04-09  Shiro Kawai  <shiro@acm.org>
 
 	* ext/dbm/gdbm.scm (gdbm-strerror): Avoid using 'errno' as a variable,

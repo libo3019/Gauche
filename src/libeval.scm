@@ -1,7 +1,7 @@
 ;;;
 ;;; libeval.scm - eval, load and related stuff
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -390,6 +390,16 @@
 ;; '@' in the paths embedded in gauche.config.
 (define-cproc %gauche-runtime-directory () Scm__RuntimeDirectory)
 
+;; Command line - R7RS adds 'command-line' procedure.  We provide it as
+;; a predefined parameter.  Like exit-handler, we manually allocate a
+;; parametre slot to avoid importing gauche.parameter.
+(select-module gauche.internal)
+(define-in-module gauche command-line
+  (let1 index (%vm-make-parameter-slot)
+    (^ maybe-arg
+      (rlet1 old (%vm-parameter-ref index '())
+        (when (pair? maybe-arg)
+          (%vm-parameter-set! index #f (car maybe-arg)))))))
 ;;
 ;; External view of VM.
 ;;

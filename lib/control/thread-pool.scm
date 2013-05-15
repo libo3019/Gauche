@@ -2,7 +2,7 @@
 ;;; control.thread-pool - thread pool
 ;;;
 ;;;  Copyright (c) 2003-2007 Time Intermedia Corporation, All rights reserved.
-;;;  Copyright (c) 2010-2012  Shiro Kawai  <shiro@acm.org>
+;;;  Copyright (c) 2010-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;  Redistribution and use in source and binary forms, with or without
 ;;;  modification, are permitted provided that the following conditions
@@ -159,12 +159,8 @@
       (enqueue! (~ pool'result-queue) (cdr job))))
 
   ;; Sends threads termination message
-  (let loop ((count 0))
-    (cond [(>= count size)]
-          [(> (mtqueue-room (~ pool'job-queue)) 0)
-           (enqueue! (~ pool'job-queue) 'over)
-           (loop (+ count 1))]
-          [else (sys-nanosleep 5e8) (loop count)]))
+  (dotimes [count size]
+    (enqueue/wait! (~ pool'job-queue) 'over))
 
   ;; Wait for termination of threads.
   (dolist [t (~ pool'pool)]

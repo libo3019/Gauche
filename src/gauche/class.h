@@ -1,7 +1,7 @@
 /*
  * class.h - Gauche object system private header
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -139,8 +139,8 @@ SCM_EXTERN ScmObj Scm_VMSlotSetUsingAccessor(ScmObj obj,
 SCM_EXTERN ScmObj Scm_VMClassOf(ScmObj obj);
 SCM_EXTERN ScmObj Scm_VMIsA(ScmObj obj, ScmClass *klass);
 
-SCM_EXTERN ScmObj Scm_InstanceSlotRef(ScmObj obj, int number);
-SCM_EXTERN void   Scm_InstanceSlotSet(ScmObj obj, int number, ScmObj val);
+SCM_EXTERN ScmObj Scm_InstanceSlotRef(ScmObj obj, ScmSmallInt k);
+SCM_EXTERN void   Scm_InstanceSlotSet(ScmObj obj, ScmSmallInt k, ScmObj val);
 
 SCM_EXTERN void   Scm_StartClassRedefinition(ScmClass *klass);
 SCM_EXTERN void   Scm_CommitClassRedefinition(ScmClass *klass, ScmObj newk);

@@ -1,7 +1,7 @@
 ;;;
 ;;; sequence.scm - sequence operations
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -69,8 +69,7 @@
             [(< (* i 2) siz) (ref o i #f)]
             [else (ref o (- siz i 1) #t)]))))
 
-(define-method modifier ((obj <list>))
-  (^[o i v] (set-car! (list-tail o i) v)))
+(define-method modifier ((obj <list>)) list-set!)
 (define-method modifier ((obj <vector>)) vector-set!)
 (define-method modifier ((obj <weak-vector>)) weak-vector-set!)
 (define-method modifier ((obj <string>)) string-set!)

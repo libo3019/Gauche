@@ -143,7 +143,8 @@ INSTALL_SUBHEADERS = \
 	gauche/reader.h gauche/regexp.h gauche/scmconst.h \
 	gauche/string.h gauche/symbol.h gauche/system.h \
 	gauche/treemap.h gauche/uthread.h gauche/vector.h gauche/vm.h \
-	gauche/vminsn.h gauche/weak.h gauche/win-compat.h gauche/wthread.h
+	gauche/vminsn.h gauche/weak.h gauche/win-compat.h gauche/writer.h \
+	gauche/wthread.h
 
 INSTALL_LIBS = $(LIBGAUCHE).$(SOEXT)
 INSTALL_BINS = gosh$(EXEEXT)           \
@@ -171,7 +172,7 @@ gosh_noconsole_OBJECTS = winmain.$(OBJEXT)
 gosh_LDADD   = -l@LINKGAUCHE@
 gosh_LDFLAGS = @SHLIB_MAIN_LDFLAGS@
 
-test_extra_SOURCES = test-extra.c libextra.scm
+test_extra_SOURCES = test-extra.c libextra.scm gauche/arch.h
 test_extra_OBJECTS = test-extra.$(OBJEXT) libextra.$(OBJEXT)
 test_extra_LDADD   = -l@LINKGAUCHE@
 test_extra_LDFLAGS = @SHLIB_MAIN_LDFLAGS@

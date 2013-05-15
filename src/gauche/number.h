@@ -1,7 +1,7 @@
 /*
  * number.h - Public API for Scheme numbers
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -194,9 +194,6 @@ SCM_EXTERN ScmObj Scm_MakeIntegerU(u_long i);
 
 SCM_EXTERN long   Scm_GetIntegerClamp(ScmObj obj, int clamp, int *oor);
 SCM_EXTERN u_long Scm_GetIntegerUClamp(ScmObj obj, int clamp, int *oor);
-#define Scm_GetInteger(x)  Scm_GetIntegerClamp(x, SCM_CLAMP_BOTH, NULL)
-#define Scm_GetIntegerU(x) Scm_GetIntegerUClamp(x, SCM_CLAMP_BOTH, NULL)
-
 SCM_EXTERN int    Scm_GetInteger8Clamp(ScmObj obj, int clamp, int *oor);
 SCM_EXTERN u_int  Scm_GetIntegerU8Clamp(ScmObj obj, int clamp, int *oor);
 SCM_EXTERN int    Scm_GetInteger16Clamp(ScmObj obj, int clamp, int *oor);
@@ -216,8 +213,24 @@ SCM_EXTERN ScmUInt64 Scm_GetIntegerU64Clamp(ScmObj obj, int clamp, int *oor);
 #define Scm_GetInteger64Clamp  Scm_GetIntegerClamp
 #define Scm_GetIntegerU64Clamp Scm_GetIntegerUClamp
 #endif /* SIZEOF_LONG >= 8 */
-#define Scm_GetInteger64(x)    Scm_GetInteger64Clamp(x, SCM_CLAMP_BOTH, NULL)
-#define Scm_GetIntegerU64(x)   Scm_GetIntegerU64Clamp(x, SCM_CLAMP_BOTH, NULL)
+
+/* Convenience macros - Scm_GetInteger() family throws an error when
+   the input is out-of-range.
+   NB: Before 0.9.4, we only had Scm_GetInteger, Scm_GetIntegerU,
+   Scm_GetInteger64 and Scm_GetIntegerU64, and they were clamping.
+   We change it in 0.9.4 to make error-signaling default, in the spirit
+   of safety by default.
+*/
+#define Scm_GetInteger(x)    Scm_GetIntegerClamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetIntegerU(x)   Scm_GetIntegerUClamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetInteger8(x)   Scm_GetInteger8Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetIntegerU8(x)  Scm_GetIntegerU8Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetInteger16(x)  Scm_GetInteger16Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetIntegerU16(x) Scm_GetIntegerU16Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetInteger32(x)  Scm_GetInteger32Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetIntegerU32(x) Scm_GetIntegerU32Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetInteger64(x)  Scm_GetInteger64Clamp(x, SCM_CLAMP_ERROR, NULL)
+#define Scm_GetIntegerU64(x) Scm_GetIntegerU64Clamp(x, SCM_CLAMP_ERROR, NULL)
 
 /* for backward compatibility -- will be gone soon */
 #define Scm_MakeIntegerFromUI Scm_MakeIntegerU
@@ -230,6 +243,7 @@ SCM_EXTERN ScmObj Scm_ReduceRational(ScmObj rational);
 SCM_EXTERN ScmObj Scm_MakeFlonum(double d);
 SCM_EXTERN double Scm_GetDouble(ScmObj obj);
 SCM_EXTERN ScmObj Scm_DecodeFlonum(double d, int *exp, int *sign);
+SCM_EXTERN int    Scm_FlonumSign(double d);
 SCM_EXTERN ScmObj Scm_MakeFlonumToNumber(double d, int exactp);
 SCM_EXTERN double       Scm_HalfToDouble(ScmHalfFloat v);
 SCM_EXTERN ScmHalfFloat Scm_DoubleToHalf(double v);
@@ -283,9 +297,7 @@ SCM_EXTERN ScmObj Scm_LogAnd(ScmObj x, ScmObj y);
 SCM_EXTERN ScmObj Scm_LogIor(ScmObj x, ScmObj y);
 SCM_EXTERN ScmObj Scm_LogXor(ScmObj x, ScmObj y);
 SCM_EXTERN ScmObj Scm_LogNot(ScmObj x);
-SCM_EXTERN int    Scm_LogTest(ScmObj x, ScmObj y);
-SCM_EXTERN int    Scm_LogBit(ScmObj x, int bit);
-SCM_EXTERN ScmObj Scm_Ash(ScmObj x, long cnt);
+SCM_EXTERN ScmObj Scm_Ash(ScmObj x, ScmSmallInt cnt);
 
 enum ScmRoundMode {
     SCM_ROUND_FLOOR,

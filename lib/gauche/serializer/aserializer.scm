@@ -1,7 +1,7 @@
 ;;;
 ;;; aserializer.scm - a serializer implementation
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -116,8 +116,8 @@
                (write-rec cinfo)
                (for-each (lambda (s)
                            (if (slot-bound? obj s)
-                               (write-rec (slot-ref obj s))
-                               (write-rec #f serializer))) ;;FIXME
+                             (write-rec (slot-ref obj s))
+                             (write-rec #f))) ;;FIXME
                          (cdr cinfo))))
             (else
              (error "unserializable object:" obj))))

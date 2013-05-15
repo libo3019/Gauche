@@ -1,7 +1,7 @@
 ;;;
 ;;; libsym.scm - built-in symbol and keyword procedures
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -53,6 +53,13 @@
   (result (Scm_MakeSymbol name FALSE)))
 (define-cproc symbol-sans-prefix (s::<symbol> p::<symbol>)
   Scm_SymbolSansPrefix)
+
+;; R7RS
+(define (symbol=? x y . rest)
+  (if-let1 z (find ($ not $ symbol? $) (list* x y rest))
+    (error "symbol required, but got:" z))
+  (and (eq? x y) (or (null? rest) (every (cut eq? x <>) rest))))
+
 
 ;;;
 ;;;  Keywords

@@ -1,7 +1,7 @@
 ;;;
 ;;; gauche-init.scm - initialize standard environment
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -43,8 +43,7 @@
 
 (define-macro (use module . options)
   `(begin
-     (with-module gauche
-       (require ,(module-name->path module)))
+     (require ,(module-name->path module))
      (import (,module ,@options))))
 
 ;; create built-in modules, so that (use srfi-6) won't complain, for example.

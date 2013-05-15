@@ -1,7 +1,7 @@
 /*
  * weak.h - Public API for weak pointers
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -53,7 +53,11 @@ SCM_EXTERN void       *Scm_WeakBoxRef(ScmWeakBox *wbox);
 
 typedef struct ScmWeakVectorRec {
     SCM_HEADER;
+#if !GAUCHE_API_0_95
     int size;
+#else  /*GAUCHE_API_0_95*/
+    ScmSmallInt size;
+#endif /*GAUCHE_API_0_95*/
     void *pointers;  /* opaque */
 } ScmWeakVector;
 
@@ -62,9 +66,11 @@ typedef struct ScmWeakVectorRec {
 SCM_CLASS_DECL(Scm_WeakVectorClass);
 #define SCM_CLASS_WEAK_VECTOR  (&Scm_WeakVectorClass)
 
-SCM_EXTERN ScmObj Scm_MakeWeakVector(int size);
-SCM_EXTERN ScmObj Scm_WeakVectorRef(ScmWeakVector *v, int index, ScmObj fallback);
-SCM_EXTERN ScmObj Scm_WeakVectorSet(ScmWeakVector *v, int index, ScmObj val);
+SCM_EXTERN ScmObj Scm_MakeWeakVector(ScmSmallInt size);
+SCM_EXTERN ScmObj Scm_WeakVectorRef(ScmWeakVector *v,
+                                    ScmSmallInt index, ScmObj fallback);
+SCM_EXTERN ScmObj Scm_WeakVectorSet(ScmWeakVector *v,
+                                    ScmSmallInt index, ScmObj val);
 
 /*================================================================
  * Weak hash tables

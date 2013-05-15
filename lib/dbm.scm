@@ -1,7 +1,7 @@
 ;;;
 ;;; dbm - abstract base class for dbm interface
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 (define-module dbm
   (use gauche.collection)
   (use gauche.dictionary)
+  (use gauche.generator)
   (export <dbm> <dbm-meta>
           dbm-open    dbm-close   dbm-closed? dbm-get
           dbm-put!    dbm-delete! dbm-exists?
@@ -157,60 +158,37 @@
 
 (define-method dbm-for-each ((dbm <dbm>) proc)
   (when (dbm-closed? dbm) (errorf "dbm-for-each: dbm already closed: ~s" dbm))
-  (dbm-fold dbm (lambda (key value r) (proc key value)) #f))
+  (dbm-fold dbm (^[key value r] (proc key value)) #f))
 
 (define-method dbm-map ((dbm <dbm>) proc)
   (when (dbm-closed? dbm) (errorf "dbm-map: dbm already closed: ~s" dbm))
   (reverse
-   (dbm-fold dbm (lambda (key value r) (cons (proc key value) r)) '())))
+   (dbm-fold dbm (^[key value r] (cons (proc key value) r)) '())))
 
+;;
 ;; Collection framework
-;;   This is a fallback, using "iterator inversion" technique to obtain
-;;   a generator from dbm-fold.  The subclass may directly implement
-;;   them if they have underlying generators.
-;; NB: this doesn't work due to the bug of call/cc handling.
-;(define-method call-with-iterator ((dbm <dbm>) proc . options)
-;  (define restart #f)
-;  (define buf #f)
-;  (define (fetch)
-;    (cond
-;     ((eq? restart 'end) #f) ;; already finished
-;     ((not restart)          ;; initial setup
-;      (let/cc return
-;        (dbm-fold dbm
-;                  (lambda (k v r)
-;                    (let/cc res
-;                      (set! restart res)
-;                      (return (cons k v))))
-;                  #f)
-;        (set! restart 'end)
-;        'end))
-;     (else (restart #f))))
-;  (set! buf (fetch))
-;  (proc (lambda () (eq? buf 'end))
-;        (lambda () (begin0 buf (set! buf (fetch))))))
+;;
+(define-method call-with-iterator ((dbm <dbm>) proc . options)
+  (let* ([g (generate
+             (^[yield] (dbm-fold dbm (^[k v r] (yield (cons k v))) #f)))]
+         [buf (g)])
+    (proc (^[] (eof-object? buf))
+          (^[] (begin0 buf (set! buf (g)))))))
 
+(define-method coerce-to ((target <list-meta>) (dbm <dbm>))
+  (dbm-map dbm cons))
+
+;;
 ;; Dictionary framework
-(define-method dict-get ((dbm <dbm>) key . maybe-default)
-  (apply dbm-get dbm key maybe-default))
-
-(define-method dict-put! ((dbm <dbm>) key val)
-  (dbm-put! dbm key val))
-
-(define-method dict-exists? ((dbm <dbm>) key)
-  (dbm-exists? dbm key))
-
-(define-method dict-delete! ((dbm <dbm>) key)
-  (dbm-delete! dbm key))
-
-(define-method dict-fold ((dbm <dbm>) proc seed)
-  (dbm-fold dbm proc seed))
-
-(define-method dict-for-each ((dbm <dbm>) proc)
-  (dbm-for-each dbm proc))
-
-(define-method dict-map ((dbm <dbm>) proc)
-  (dbm-map dbm proc))
+;;
+(define-dict-interface <dbm>
+  :get       dbm-get
+  :put!      dbm-put!
+  :exists?   dbm-exists?
+  :delete!   dbm-delete!
+  :fold      dbm-fold
+  :map       dbm-map
+  :for-each  dbm-for-each)
 
 ;;
 ;; Meta-operations

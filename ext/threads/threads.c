@@ -1,7 +1,7 @@
 /*
  * thread.c - Scheme thread API
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -385,6 +385,8 @@ ScmObj Scm_ThreadSleep(ScmObj timeout)
         intr = TRUE;
     }
     SCM_INTERNAL_MUTEX_UNLOCK(dummym);
+    SCM_INTERNAL_MUTEX_DESTROY(dummym);
+    SCM_INTERNAL_COND_DESTROY(dummyc);
     if (intr) Scm_SigCheck(Scm_VM());
 #else  /*!GAUCHE_HAS_THREADS*/
     Scm_Error("not implemented!\n");

@@ -1,7 +1,7 @@
 /*
  * gloc.h - Public API for Scheme glocs
  *
- *   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+ *   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
@@ -42,7 +42,6 @@ struct ScmGlocRec {
     ScmModule *module;
     ScmObj value;               /* The actual value.  Have to be accessed
                                    via SCM_GLOC_{GET|SET} macros. */
-    char exported;              /* TRUE if this binding is exported */
     char hidden;                /* TRUE if this is a "negative binding",
                                    see below. */
     ScmObj (*getter)(ScmGloc *);         /* see 'hooks' below */

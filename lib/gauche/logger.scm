@@ -1,7 +1,7 @@
 ;;;
 ;;; logger.scm - simple use-level logging
 ;;;
-;;;   Copyright (c) 2000-2012  Shiro Kawai  <shiro@acm.org>
+;;;   Copyright (c) 2000-2013  Shiro Kawai  <shiro@acm.org>
 ;;;
 ;;;   Redistribution and use in source and binary forms, with or without
 ;;;   modification, are permitted provided that the following conditions
@@ -52,7 +52,10 @@
 (define-class <log-drain> ()
   ((path   :init-keyword :path :initform #f)
    (program-name :init-keyword :program-name
-                 :initform  (sys-basename (with-module user *program-name*)))
+                 :initform (let1 argv (command-line)
+                             (if (pair? argv)
+                               (sys-basename (car argv))
+                               "")))
    (retry  :init-keyword :retry :initform 5)
    (prefix :init-keyword :prefix :initform "~T ~P[~$]: ")
    (lock-policy :init-keyword :lock-policy :initform 'tbd)
