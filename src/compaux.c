@@ -166,7 +166,6 @@ static ScmObj get_binding_frame(ScmObj var, ScmObj env)
 ScmObj Scm_MakeIdentifier(ScmSymbol *name, ScmModule *mod, ScmObj env)
 {
     ScmIdentifier *id = SCM_NEW(ScmIdentifier);
-    
     SCM_SET_CLASS(id, SCM_CLASS_IDENTIFIER);
     id->name = name;
     id->module = mod? mod : SCM_CURRENT_MODULE();

@@ -208,12 +208,6 @@
    (ref-count 0)
    (set-count 0)))
 
-(define-syntax %lvar-initval-set! lvar-initval-set!)
-(define (lvar-initval-set! lv x)
-  (when (eq? (lvar-name lv) 'if)
-    (display "$$$") (write/ss x) (newline))
-  (%lvar-initval-set! lv x))
-
 (define (make-lvar+ name) ;; procedure version of constructor, for mapping
   (make-lvar name))
 
@@ -313,20 +307,19 @@
          (when (SCM_EQ name (SCM_CAR vp)) (return (SCM_CDR vp))))))
    ;; Now we 'strip' the identifier's wrapping
    (let* ([name-ident?::int (SCM_IDENTIFIERP name)]
-          [frames (?: name-ident?
-                      (-> (SCM_IDENTIFIER name) env)
-                      frames)]
+          [env (?: name-ident?
+                   (-> (SCM_IDENTIFIER name) env)
+                   frames)]
           [true-name (?: name-ident?
                          (SCM_OBJ (-> (SCM_IDENTIFIER name) name))
                          name)])
-     (unless (or (SCM_NULLP frames) (SCM_PAIRP frames))
-       (Scm_Printf SCM_CURERR ">>> %S\n" frames))
-     (dopairs [fp frames]
+     (dopairs [fp env]
        (when (> (SCM_CAAR fp) lookup-as) ; see PERFORMANCE KLUDGE above
          (continue))
        ;; inline assq here to squeeze performance.
        (dolist [vp (SCM_CDAR fp)]
          (when (SCM_EQ true-name (SCM_CAR vp)) (return (SCM_CDR vp)))))
+     (SCM_ASSERT (SCM_MODULEP module))
      (if (SCM_SYMBOLP name)
        (return (Scm_MakeIdentifier (SCM_SYMBOL name) module '()))
        (begin
@@ -341,6 +334,7 @@
  ;;    | SYNTAX(1)  - lookup lexical and syntactic bindings
  ;;    | PATTERN(2) - lookup lexical, syntactic and pattern bindings
  (define-cproc cenv-lookup (cenv name lookup-as)
+   (SCM_ASSERT (SCM_VECTORP cenv))
    (result
     (env-lookup name lookup-as
                 (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
@@ -497,19 +491,9 @@
 
 ;; $gref <id>
 ;;   Global variable reference.
-(define-simple-struct $%gref $GREF $gref
+(define-simple-struct $gref $GREF $gref
   (id        ; identifier
    ))
-
-(define ($gref x)
-  (unless (identifier? x) (error "Bong bong!" x))
-  ($%gref x))
-
-(define ($gref-id x)
-  (vector-ref x 1))
-(define ($gref-id-set! x v)
-  (unless (identifier? v) (error "Bong bong!" v))
-  ($%gref-id-set! x v))
 
 ;; $gset <id> <iform>
 ;;   Global variable assignment.
@@ -1448,12 +1432,9 @@
 ;; `pass1 for syntax' on (car PROGRAM) and check the result to see if
 ;; we need to treat PROGRAM as a special form or an ordinary procedure.
 ;; It would be a large change, so this is a compromise...
-(define (pass1/lookup-head head cenv)
-  (or (rlet1 z (and (variable? head)
-                    (cenv-lookup cenv head SYNTAX))
-        (when (and (identifier? head)
-                   (eq? (identifier-name head) 'if))
-          '(format/ss #t "&&& ~s ~s\n" z cenv)))
+(define-inline (pass1/lookup-head head cenv)
+  (or (and (variable? head)
+           (cenv-lookup cenv head SYNTAX))
       (and (pair? head)
            (module-qualified-variable? head cenv)
            (let1 mod (ensure-module (cadr head) 'with-module #f)
