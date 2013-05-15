@@ -296,7 +296,7 @@
  ;;     - We assume the frame structure is well-formed, so skip some tests.
  ;;     - We assume 'lookupAs' and the car of each frame are small non-negative
  ;;       integers, so we directly compare them without unboxing them.
- (define-cfn env-lookup (name lookup-as module::ScmModule* frames) :static
+ (define-cfn env-lookup-int (name lookup-as module::ScmModule* frames) :static
    ;; First, we look up the identifier directly
    (when (SCM_IDENTIFIERP name)
      (dopairs [fp1 frames]
@@ -319,14 +319,13 @@
        ;; inline assq here to squeeze performance.
        (dolist [vp (SCM_CDAR fp)]
          (when (SCM_EQ true-name (SCM_CAR vp)) (return (SCM_CDR vp)))))
-     (SCM_ASSERT (SCM_MODULEP module))
      (if (SCM_SYMBOLP name)
        (return (Scm_MakeIdentifier (SCM_SYMBOL name) module '()))
        (begin
          (SCM_ASSERT (SCM_IDENTIFIERP name))
          (return name)))))
 
-  ;; cenv-lookup :: Cenv, Name, LookupAs -> Var
+ ;; cenv-lookup :: Cenv, Name, LookupAs -> Var
  ;;         where Var = Lvar | Identifier | Macro
  ;;
  ;;  LookupAs ::
@@ -334,11 +333,13 @@
  ;;    | SYNTAX(1)  - lookup lexical and syntactic bindings
  ;;    | PATTERN(2) - lookup lexical, syntactic and pattern bindings
  (define-cproc cenv-lookup (cenv name lookup-as)
-   (SCM_ASSERT (SCM_VECTORP cenv))
    (result
-    (env-lookup name lookup-as
-                (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
-                (SCM_VECTOR_ELEMENT cenv 1))))             ; frames
+    (env-lookup-int name lookup-as
+                    (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
+                    (SCM_VECTOR_ELEMENT cenv 1))))             ; frames
+
+ (define-cproc env-lookup (name lookup-as module frames)
+   (result (env-lookup-int name lookup-as (SCM_MODULE module) frames)))
 
  ;; Check if Cenv is toplevel or not.
  ;;
@@ -5553,10 +5554,9 @@
   (define def-module (cenv-module cenv))
   (define def-env    (cenv-frames cenv))
   (define (compare a b uenv)
-    ;; TODO: need to consider how we pass along uenv
-    (let1 cuenv (make-cenv (vm-current-module) uenv)
-      (let ([a1 (cenv-lookup cuenv a SYNTAX)]
-            [b1 (cenv-lookup cuenv b SYNTAX)])
+    (let1 umod (vm-current-module)
+      (let ([a1 (env-lookup a SYNTAX umod uenv)]
+            [b1 (env-lookup b SYNTAX umod uenv)])
         (or (eq? a b)
             (and (identifier? a1)
                  (identifier? b1)
