@@ -5560,7 +5560,7 @@
         (or (eq? a b)
             (and (identifier? a1)
                  (identifier? b1)
-                 (bound-id=? a1 b1))))))
+                 (free-identifier=? a1 b1))))))
   (define (expand form uenv)
     (let1 dict '()
       (xformer form
@@ -5706,6 +5706,18 @@
   (let ([g1 (id->bound-gloc id1)]
         [g2 (id->bound-gloc id2)])
     (and g1 g2 (eq? (gloc-ref g1) (gloc-ref g2)))))
+
+(define (free-identifier=? id1 id2)
+  (define (lookup id)
+    (env-lookup id SYNTAX (identifier-module id) (identifier-env id)))
+  (let ([b1 (lookup id1)]
+        [b2 (lookup id2)])
+    (or (and (lvar? b1) (eq? b1 b2))    ;has the same local variable binding
+        (and (macro? b1) (eq? b1 b2))   ;has the same local syntactic binding
+        (let ([g1 (id->bound-gloc id1)]
+              [g2 (id->bound-gloc id2)])
+          (or (and (not g1) (not g2))   ;both are free
+              (eq? g1 g2))))))          ;both has the same toplevel binding
 
 (define (everyc proc lis c)             ;avoid closure allocation
   (or (null? lis)
