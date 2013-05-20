@@ -1534,7 +1534,7 @@
     [((? variable? wm) mod (? variable? v))
      (and-let* ([var (cenv-lookup cenv wm SYNTAX)]
                 [ (identifier? var) ])
-       (bound-id=? var (global-id 'with-module)))]
+       (global-identifier=? var (global-id 'with-module)))]
     [_ #f]))
 
 ;;--------------------------------------------------------------
@@ -2701,7 +2701,7 @@
          (process-import:mapsym
           :only (unwrap-syntax ss) #f prefix
           (^[sym orig-sym] (unless (%alias-binding m orig-sym imported orig-sym)
-                             (errorf "during processing :once clause: \
+                             (errorf "during processing :only clause: \
                                       binding of ~a isn't exported from ~a"
                                      orig-sym imported))))
          (%extend-module m '())
@@ -3849,7 +3849,7 @@
 (define (pass3/find-deducible-predicate id)
   (let loop ((tab *pass3/pred-table*))
     (cond [(null? tab) pass3/pred:fallback]
-          [(bound-id=? id (caar tab)) (cdar tab)]
+          [(global-identifier=? id (caar tab)) (cdar tab)]
           [else (loop (cdr tab))])))
 
 (define (pass3/deduce-predicate-result gref arg)
@@ -5702,10 +5702,13 @@
               (eq? (identifier-name v) sym)
               (null? (identifier-env v))))))
 
-(define (bound-id=? id1 id2) ; like bound-identifier=? but only for toplevel
-  (let ([g1 (id->bound-gloc id1)]
-        [g2 (id->bound-gloc id2)])
-    (and g1 g2 (eq? (gloc-ref g1) (gloc-ref g2)))))
+;; Returns #t if id1 and id2 both refer to the same existing global binding.
+;; Like free-identifier=? but we know id1 and id2 are both toplevel and
+;; at least one is bound, so we skip local binding lookup.
+(define (global-identifier=? id1 id2)
+  (and-let* ([g1 (id->bound-gloc id1)]
+             [g2 (id->bound-gloc id2)])
+    (eq? g1 g2)))
 
 (define (free-identifier=? id1 id2)
   (define (lookup id)
