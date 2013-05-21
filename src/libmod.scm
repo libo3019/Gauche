@@ -207,3 +207,52 @@
 (define-cproc gloc-const? (gloc::<gloc>) ::<boolean> Scm_GlocConstP)
 (define-cproc gloc-inlinable? (gloc::<gloc>) ::<boolean> Scm_GlocInlinableP)
 
+;;;
+;;; Identifier and binding
+;;;
+
+;; NB: Identifier procedures are in libsym.scm, for we might integrate
+;; symbols and identifiers (we're still not sure).
+
+;; Returns GLOC if id is bound to one, or #f.  If GLOC is returned,
+;; it is always bound.
+
+;; (define (id->bound-gloc id)
+;;   (and-let* ([gloc (find-binding (identifier-module id)
+;;                                  (identifier-name id) #f)]
+;;              [ (gloc-bound? gloc) ])
+;;     gloc))
+(inline-stub
+ (define-cproc id->bound-gloc (id::<identifier>)
+   (let* ([gloc::ScmGloc* (Scm_FindBinding (-> id module) (-> id name) 0)])
+     (if (and gloc (not (SCM_UNBOUNDP (SCM_GLOC_GET gloc))))
+       (result (SCM_OBJ gloc))
+       (result SCM_FALSE))))
+ )
+
+;; Returns #t if id1 and id2 both refer to the same existing global binding.
+;; Like free-identifier=? but we know id1 and id2 are both toplevel and
+;; at least one is bound, so we skip local binding lookup.
+(define (global-identifier=? id1 id2)
+  (and-let* ([ (identifier? id1) ]
+             [ (identifier? id2) ]
+             [g1 (id->bound-gloc id1)]
+             [g2 (id->bound-gloc id2)])
+    (eq? g1 g2)))
+
+;; Returns #t iff id1 and id2 would resolve to the same binding
+;; (or both are free).
+(define (free-identifier=? id1 id2)
+  (define (lookup id)
+    (env-lookup id #t (identifier-module id) (identifier-env id)))
+  (and (identifier? id1)
+       (identifier? id2)
+       (let ([b1 (lookup id1)]
+             [b2 (lookup id2)])
+         (or (and (lvar? b1) (eq? b1 b2))  ;has the same local variable binding
+             (and (macro? b1) (eq? b1 b2)) ;has the same local syntactic binding
+             (let ([g1 (id->bound-gloc id1)]
+                   [g2 (id->bound-gloc id2)])
+               (or (and (not g1) (not g2)) ;both are free
+                   (eq? g1 g2)))))))       ;both has the same toplevel binding
+

@@ -112,7 +112,10 @@
 ;; Compile-time constants
 ;;
 
-;; used by cenv-lookup
+;; used by env-lookup-int
+;; NB: We'll get rid of PATTERN variable lookup after we replace the
+;; macro system, then the distinction of LEXICAL/SYNTAX lookup can be
+;; specified by a boolean flag and we can drop these constants.
 (eval-when (:compile-toplevel)
   (define-constant LEXICAL 0)
   (define-constant SYNTAX  1)
@@ -289,7 +292,7 @@
 
 ;; Some cenv-related proceduers are in C for better performance.
 (inline-stub
- ;; env-lookup :: Name, LookupAs, Module, [Frame] -> Var
+ ;; env-lookup-int :: Name, LookupAs, Module, [Frame] -> Var
  ;;         where Var = Lvar | Identifier | Macro
  ;;
  ;;  PERFORMANCE KLUDGE:
@@ -338,8 +341,11 @@
                     (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
                     (SCM_VECTOR_ELEMENT cenv 1))))             ; frames
 
- (define-cproc env-lookup (name lookup-as module frames)
-   (result (env-lookup-int name lookup-as (SCM_MODULE module) frames)))
+ (define-cproc env-lookup (name syntax?::<boolean> module frames)
+   (result (env-lookup-int name
+                           ;;          SYNTAX           LEXICAL 
+                           (?: syntax? (SCM_MAKE_INT 1) (SCM_MAKE_INT 0))
+                           (SCM_MODULE module) frames)))
 
  ;; Check if Cenv is toplevel or not.
  ;;
@@ -1582,20 +1588,21 @@
              (pass1/body-macro-expand-rec head exprs intdefs cenv)]
             [(syntax? head) ; when (let-syntax ((xif if)) (xif ...)) etc.
              (pass1/body-finish intdefs exprs cenv)]
-            [(global-eq? head 'define cenv)
+            [(not (identifier? head)) (error "[internal] pass1/body" head)]
+            [(global-identifier=? head define.)
              (let1 def (match args
                          [((name . formals) . body)
                           `(,name (,lambda. ,formals ,@body) . ,src)]
                          [(var init) `(,var ,init . ,src)]
                          [_ (error "malformed internal define:" (caar exprs))])
                (pass1/body-rec rest (cons def intdefs) cenv))]
-            [(global-eq? head 'begin cenv) ;intersperse forms
+            [(global-identifier=? head begin.) ;intersperse forms
              (pass1/body-rec (append (imap (cut cons <> src) args) rest)
                              intdefs cenv)]
-            [(global-eq? head 'include cenv)
+            [(global-identifier=? head include.)
              (let1 sexpr&srcs (pass1/expand-include args cenv #f)
                (pass1/body-rec (append sexpr&srcs rest) intdefs cenv))]
-            [(global-eq? head 'include-ci cenv)
+            [(global-identifier=? head include-ci.)
              (let1 sexpr&srcs (pass1/expand-include args cenv #t)
                (pass1/body-rec (append sexpr&srcs rest) intdefs cenv))]
             [(identifier? head)
@@ -1722,13 +1729,18 @@
 
 (define (global-id id) (make-identifier id (find-module 'gauche) '()))
 
-(define lambda. (global-id 'lambda))
+(define define.      (global-id 'define))
+(define lambda.      (global-id 'lambda))
 (define r5rs-lambda. (make-identifier 'lambda (find-module 'null) '()))
-(define setter. (global-id 'setter))
-(define lazy.   (global-id 'lazy))
-(define eager.  (global-id 'eager))
-(define values. (global-id 'values))
-(define begin.  (global-id 'begin))
+(define setter.      (global-id 'setter))
+(define lazy.        (global-id 'lazy))
+(define eager.       (global-id 'eager))
+(define values.      (global-id 'values))
+(define begin.       (global-id 'begin))
+(define include.     (global-id 'include))
+(define include-ci.  (global-id 'include-ci))
+(define else.        (global-id 'else))
+(define =>.          (global-id '=>))
 
 (define %make-er-transformer. (make-identifier '%make-er-transformer
                                                (find-module 'gauche.internal)
@@ -1974,7 +1986,7 @@
   (match form
     [(_ xformer)
      (let1 xf-iform (pass1 xformer cenv)
-       ($call #f ;; TODO
+       ($call #f ;; TODO - how to keep the source info?
               ($gref %make-er-transformer.)
               (list xf-iform ($const cenv))))]
     [_ (error "syntax-error: malformed er-transformer:" form)]))
@@ -5603,17 +5615,6 @@
         [(lvar? arg) (lvar-name arg)]
         [else (error "variable required, but got:" arg)]))
 
-;; Returns GLOC if id is bound to one, or #f.  If GLOC is returned,
-;; it is always bound.
-
-(inline-stub
- (define-cproc id->bound-gloc (id::<identifier>)
-   (let* ([gloc::ScmGloc* (Scm_FindBinding (-> id module) (-> id name) 0)])
-     (if (and gloc (not (SCM_UNBOUNDP (SCM_GLOC_GET gloc))))
-       (result (SCM_OBJ gloc))
-       (result SCM_FALSE))))
- )
-
 ;; GLOBAL-CALL-TYPE
 ;;
 ;;   This is an aux call to dispatch the function call with global variable
@@ -5690,37 +5691,12 @@
      ))
  )
 
-;; (define (id->bound-gloc id)
-;;   (and-let* ([gloc (find-binding (identifier-module id) (identifier-name id) #f)]
-;;              [ (gloc-bound? gloc) ])
-;;     gloc))
-
 (define (global-eq? var sym cenv)  ; like free-identifier=?, used in pass1.
   (and (variable? var)
        (let1 v (cenv-lookup cenv var LEXICAL)
          (and (identifier? v)
               (eq? (identifier-name v) sym)
               (null? (identifier-env v))))))
-
-;; Returns #t if id1 and id2 both refer to the same existing global binding.
-;; Like free-identifier=? but we know id1 and id2 are both toplevel and
-;; at least one is bound, so we skip local binding lookup.
-(define (global-identifier=? id1 id2)
-  (and-let* ([g1 (id->bound-gloc id1)]
-             [g2 (id->bound-gloc id2)])
-    (eq? g1 g2)))
-
-(define (free-identifier=? id1 id2)
-  (define (lookup id)
-    (env-lookup id SYNTAX (identifier-module id) (identifier-env id)))
-  (let ([b1 (lookup id1)]
-        [b2 (lookup id2)])
-    (or (and (lvar? b1) (eq? b1 b2))    ;has the same local variable binding
-        (and (macro? b1) (eq? b1 b2))   ;has the same local syntactic binding
-        (let ([g1 (id->bound-gloc id1)]
-              [g2 (id->bound-gloc id2)])
-          (or (and (not g1) (not g2))   ;both are free
-              (eq? g1 g2))))))          ;both has the same toplevel binding
 
 (define (everyc proc lis c)             ;avoid closure allocation
   (or (null? lis)
@@ -6024,3 +6000,4 @@
 ;;       - interpreted in the macro use environment (unhygienic)
 ;;
 ;; 
+
