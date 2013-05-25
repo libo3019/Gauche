@@ -244,7 +244,7 @@
 ;; (or both are free).
 (define (free-identifier=? id1 id2)
   (define (lookup id)
-    (env-lookup id #t (identifier-module id) (identifier-env id)))
+    (env-lookup id (identifier-module id) (identifier-env id)))
   (and (identifier? id1)
        (identifier? id2)
        (let ([b1 (lookup id1)]

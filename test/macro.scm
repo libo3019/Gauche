@@ -126,6 +126,17 @@
   (test "er-cond (cross-module)" '(even odd)
         (^[] (list (er-cond-tester1 0) (er-cond-tester1 1)))))
 
+;; Introducing local bindings
+(let ((x 3))
+  (let-syntax ([foo (er-transformer
+                     (^[f r c]
+                       (let1 body (cdr f)
+                         `(,(r 'let) ([,(r 'x) (,(r '+) ,(r 'x) 2)])
+                           (,(r '+) ,(r 'x) ,@body)))))])
+    (let ((x -1))
+      (test* "er-macro introducing local bindings" 4
+             (foo x)))))
+
 ;;----------------------------------------------------------------------
 ;; basic tests
 

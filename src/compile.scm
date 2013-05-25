@@ -328,24 +328,23 @@
          (SCM_ASSERT (SCM_IDENTIFIERP name))
          (return name)))))
 
- ;; cenv-lookup :: Cenv, Name, LookupAs -> Var
- ;;         where Var = Lvar | Identifier | Macro
- ;;
- ;;  LookupAs ::
- ;;      LEXICAL(0) - lookup only lexical bindings
- ;;    | SYNTAX(1)  - lookup lexical and syntactic bindings
- ;;    | PATTERN(2) - lookup lexical, syntactic and pattern bindings
- (define-cproc cenv-lookup (cenv name lookup-as)
+ ;; Internal API - used while macro expansion
+ (define-cproc env-lookup (name module frames)
+   (result (env-lookup-int name (SCM_MAKE_INT 1) ;; SYNTAX
+                           (SCM_MODULE module) frames)))
+ ;; Internal API - for faster CENV lookup
+ (define-cproc cenv-lookup-syntax (cenv name)
    (result
-    (env-lookup-int name lookup-as
+    (env-lookup-int name (SCM_MAKE_INT 1)                      ; SYNTAX
+                    (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
+                    (SCM_VECTOR_ELEMENT cenv 1))))             ; frames
+ ;; Internal API - for faster CENV lookup
+  (define-cproc cenv-lookup-variable (cenv name)
+   (result
+    (env-lookup-int name (SCM_MAKE_INT 0)                      ; LEXICAL
                     (SCM_MODULE (SCM_VECTOR_ELEMENT cenv 0))   ; module
                     (SCM_VECTOR_ELEMENT cenv 1))))             ; frames
 
- (define-cproc env-lookup (name syntax?::<boolean> module frames)
-   (result (env-lookup-int name
-                           ;;          SYNTAX           LEXICAL 
-                           (?: syntax? (SCM_MAKE_INT 1) (SCM_MAKE_INT 0))
-                           (SCM_MODULE module) frames)))
 
  ;; Check if Cenv is toplevel or not.
  ;;
@@ -1441,12 +1440,11 @@
 ;; It would be a large change, so this is a compromise...
 (define-inline (pass1/lookup-head head cenv)
   (or (and (variable? head)
-           (cenv-lookup cenv head SYNTAX))
+           (cenv-lookup-syntax cenv head))
       (and (pair? head)
            (module-qualified-variable? head cenv)
            (let1 mod (ensure-module (cadr head) 'with-module #f)
-             (cenv-lookup (cenv-swap-module cenv mod)
-                          (caddr head) SYNTAX)))))
+             (cenv-lookup-syntax (cenv-swap-module cenv mod) (caddr head))))))
 
 ;;--------------------------------------------------------------
 ;; pass1 :: Sexpr, Cenv -> IForm
@@ -1523,7 +1521,7 @@
      [else (pass1/call program (pass1 (car program) (cenv-sans-name cenv))
                        (cdr program) cenv)])]
    [(variable? program)                 ; variable reference
-    (let1 r (cenv-lookup cenv program LEXICAL)
+    (let1 r (cenv-lookup-variable cenv program)
       (cond [(lvar? r) ($lref r)]
             [(identifier? r)
              (or (and-let* ([const (find-const-binding r)]) ($const const))
@@ -1538,7 +1536,7 @@
 (define (module-qualified-variable? expr cenv)
   (match expr
     [((? variable? wm) mod (? variable? v))
-     (and-let* ([var (cenv-lookup cenv wm SYNTAX)]
+     (and-let* ([var (cenv-lookup-syntax cenv wm)]
                 [ (identifier? var) ])
        (global-identifier=? var (global-id 'with-module)))]
     [_ #f]))
@@ -2618,7 +2616,7 @@
     [(_ name expr)
      (unless (variable? name)
        (error "syntax-error: malformed set!:" form))
-     (let ([var (cenv-lookup cenv name LEXICAL)]
+     (let ([var (cenv-lookup-variable cenv name)]
            [val (pass1 expr cenv)])
        (if (lvar? var)
          ($lset var val)
@@ -5562,8 +5560,8 @@
 ;; er-comparer :: (Sym-or-id, Sym-or-id, Env, Env) -> Bool
 (define (er-comparer a b uenv cenv)
   (let1 umod (vm-current-module)
-    (let ([a1 (env-lookup a #t umod uenv)]
-          [b1 (env-lookup b #t umod uenv)])
+    (let ([a1 (env-lookup a umod uenv)]
+          [b1 (env-lookup b umod uenv)])
       (or (eq? a b)
           (and (identifier? a1)
                (identifier? b1)
@@ -5693,7 +5691,7 @@
 
 (define (global-eq? var sym cenv)  ; like free-identifier=?, used in pass1.
   (and (variable? var)
-       (let1 v (cenv-lookup cenv var LEXICAL)
+       (let1 v (cenv-lookup-variable cenv var)
          (and (identifier? v)
               (eq? (identifier-name v) sym)
               (null? (identifier-env v))))))
