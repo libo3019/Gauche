@@ -5542,7 +5542,7 @@
 ;; Macro
 ;;
 
-;; er-renamer :: Sym-or-id, [Id] -> (Id, [Id])
+;; er-renamer :: (Sym-or-id, [Id]) -> (Id, [Id])
 ;; Renamer creates an identifier out of bare symbol.  The identifier is
 ;; unique per macro invocation.  We keep an alist of sym & created ids
 ;; during one macro invocation to guarantee that eq?-ness of the renamed
@@ -5559,20 +5559,20 @@
               env)
       (values id (acons sym id dict)))))
 
-;; 
+;; er-comparer :: (Sym-or-id, Sym-or-id, Env, Env) -> Bool
+(define (er-comparer a b uenv cenv)
+  (let1 umod (vm-current-module)
+    (let ([a1 (env-lookup a #t umod uenv)]
+          [b1 (env-lookup b #t umod uenv)])
+      (or (eq? a b)
+          (and (identifier? a1)
+               (identifier? b1)
+               (free-identifier=? a1 b1))))))
 
 ;; xformer :: (Sexpr, (Sym -> Sym), (Sym, Sym -> Bool)) -> Sexpr
 (define (%make-er-transformer xformer cenv)
   (define def-module (cenv-module cenv))
   (define def-env    (cenv-frames cenv))
-  (define (compare a b uenv)
-    (let1 umod (vm-current-module)
-      (let ([a1 (env-lookup a SYNTAX umod uenv)]
-            [b1 (env-lookup b SYNTAX umod uenv)])
-        (or (eq? a b)
-            (and (identifier? a1)
-                 (identifier? b1)
-                 (free-identifier=? a1 b1))))))
   (define (expand form uenv)
     (let1 dict '()
       (xformer form
@@ -5580,7 +5580,7 @@
                  (receive [id dict_] (er-renamer sym dict def-module def-env)
                    (set! dict dict_)
                    id))
-               (^[a b] (compare a b uenv)))))
+               (^[a b] (er-comparer a b uenv cenv)))))
   (%make-macro-transformer (cenv-exp-name cenv) expand))
 
 ;;============================================================

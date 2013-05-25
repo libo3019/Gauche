@@ -116,7 +116,8 @@
                     `(,(r 'begin) ,@(cdr first))]
                    [else `(,(r 'if) ,test
                            (,(r 'begin) ,@(cdr first))
-                           (er-cond ,@rest))]))))))))
+                           (er-cond2 ,@rest))]))))))))
+
 (define-module er-test-mod2
   (use gauche.test)
   (import er-test-mod)
